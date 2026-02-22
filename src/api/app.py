@@ -435,7 +435,7 @@ async def websocket_state(websocket: WebSocket) -> None:
 
 # Browser audio config
 _BROWSER_SAMPLE_RATE = 16000  # AudioWorklet resamples to 16kHz before sending
-_CHUNK_SAMPLES = 20480        # 1.28s at 16kHz = exactly 128 model frames
+_CHUNK_SAMPLES = 32000        # 2s at 16kHz — good for voice commands
 _FLUSH_TIMEOUT_S = 2.0        # Flush partial buffer after this many seconds of silence
 
 

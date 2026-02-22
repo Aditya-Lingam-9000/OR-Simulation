@@ -27,19 +27,34 @@ logger = logging.getLogger(__name__)
 
 
 def _create_asr_runner():
-    """Create the best available ASR runner (sherpa-onnx preferred)."""
-    # Try sherpa-onnx first (bundles its own ONNX runtime, no CUDA lib issues)
+    """Create the best available ASR runner.
+
+    Priority:
+      1. faster-whisper  — most reliable, handles any audio length, GPU-accelerated
+      2. sherpa-onnx     — bundles ONNX Runtime, but has mask-rank issues with MedASR
+      3. onnxruntime     — raw ONNX runner (fallback)
+    """
+    # 1. faster-whisper (best option for Kaggle T4 GPUs)
+    try:
+        import faster_whisper  # noqa: F401
+        from src.asr.whisper_runner import WhisperASRRunner
+        logger.info("ASR backend: faster-whisper (preferred)")
+        return WhisperASRRunner(model_size="base.en")
+    except ImportError:
+        logger.info("faster-whisper not available, trying sherpa-onnx")
+
+    # 2. sherpa-onnx
     try:
         import sherpa_onnx  # noqa: F401
         from src.asr.sherpa_runner import SherpaASRRunner
-        logger.info("ASR backend: sherpa-onnx (preferred)")
+        logger.info("ASR backend: sherpa-onnx")
         return SherpaASRRunner()
     except ImportError:
         logger.info("sherpa-onnx not available, trying onnxruntime backend")
 
-    # Fall back to raw onnxruntime
+    # 3. onnxruntime (requires manual ONNX setup)
     from src.asr.onnx_runner import OnnxASRRunner
-    logger.info("ASR backend: onnxruntime")
+    logger.info("ASR backend: onnxruntime (fallback)")
     return OnnxASRRunner()
 
 

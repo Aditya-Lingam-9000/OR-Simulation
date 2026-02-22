@@ -33,10 +33,9 @@ pip_install(
     "uvicorn[standard]==0.30.0",
     "pydantic>=2.0",
     "numpy>=1.24",
-    "sherpa-onnx>=1.12.0",      # ASR (bundles ONNX Runtime internally)
+    "faster-whisper>=1.0.0",    # ASR (CTranslate2 backend, GPU-accelerated)
     "soundfile>=0.12.1",        # audio I/O
     "pyngrok==7.1.6",           # ngrok tunnel
-    "torchaudio>=2.0",          # feature extraction
     "huggingface_hub",          # model downloads
 )
 print("✅ Core dependencies installed")
@@ -91,32 +90,16 @@ print(f"Working directory: {os.getcwd()}")
 # Option B: Download them here.
 
 # %%
-ONNX_DIR = REPO_DIR / "onnx_models" / "medasr"
 GGUF_DIR = REPO_DIR / "onnx_models" / "medgemma"
 
-ONNX_DIR.mkdir(parents=True, exist_ok=True)
 GGUF_DIR.mkdir(parents=True, exist_ok=True)
 
 from huggingface_hub import hf_hub_download
 
-# --- ASR Model (MedASR ONNX int8) ---
-ASR_MODEL = ONNX_DIR / "model.int8.onnx"
-ASR_TOKENS = ONNX_DIR / "tokens.txt"
-if not ASR_MODEL.exists():
-    print("⬇️  Downloading MedASR ONNX model from HuggingFace...")
-    hf_hub_download(
-        repo_id="csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25",
-        filename="model.int8.onnx",
-        local_dir=str(ONNX_DIR),
-    )
-    hf_hub_download(
-        repo_id="csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25",
-        filename="tokens.txt",
-        local_dir=str(ONNX_DIR),
-    )
-    print(f"✅ MedASR model downloaded to {ONNX_DIR}")
-else:
-    print(f"✅ ASR model found: {ASR_MODEL} ({ASR_MODEL.stat().st_size / 1e6:.1f} MB)")
+# --- ASR Model (faster-whisper base.en) ---
+# faster-whisper auto-downloads from HuggingFace on first use.
+# No manual download needed. Model cached at ~/.cache/huggingface/hub/
+print("✅ ASR: faster-whisper base.en (auto-downloads on first transcription)")
 
 # --- MedGemma LLM (GGUF Q3_K_M) ---
 LLM_MODEL = GGUF_DIR / "medgemma-4b-it-Q3_K_M.gguf"
