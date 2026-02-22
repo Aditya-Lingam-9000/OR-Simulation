@@ -50,6 +50,17 @@ subprocess.check_call([
 ])
 print("✅ llama-cpp-python installed with CUDA 12.4 support")
 
+# Verify GPU offload is available
+try:
+    import llama_cpp
+    lib = getattr(llama_cpp, "llama_cpp", None)
+    gpu_ok = lib.llama_supports_gpu_offload() if lib else False
+    print(f"   GPU offload supported: {gpu_ok}")
+    if not gpu_ok:
+        print("   ⚠️  llama-cpp-python has no GPU support — LLM will be slow (CPU only)")
+except Exception as e:
+    print(f"   ⚠️  Could not verify GPU support: {e}")
+
 # %% [markdown]
 # ## Cell 2: Clone Repository & Setup
 
@@ -111,12 +122,23 @@ else:
 LLM_MODEL = GGUF_DIR / "medgemma-4b-it-Q3_K_M.gguf"
 if not LLM_MODEL.exists():
     print("⬇️  Downloading MedGemma GGUF from HuggingFace (~1.8 GB)...")
-    hf_hub_download(
+    downloaded = hf_hub_download(
         repo_id="unsloth/medgemma-4b-it-GGUF",
         filename="medgemma-4b-it-Q3_K_M.gguf",
         local_dir=str(GGUF_DIR),
     )
-    print(f"✅ MedGemma downloaded to {GGUF_DIR}")
+    print(f"✅ MedGemma downloaded to: {downloaded}")
+    # Verify the file landed in the expected path
+    import shutil
+    if not LLM_MODEL.exists() and Path(downloaded).exists():
+        shutil.copy2(downloaded, LLM_MODEL)
+        print(f"   Copied to expected path: {LLM_MODEL}")
+
+if LLM_MODEL.exists():
+    sz = LLM_MODEL.stat().st_size
+    print(f"✅ MedGemma verified: {LLM_MODEL} ({sz / 1e9:.2f} GB, {sz} bytes)")
+    if sz < 100_000_000:
+        print(f"⚠️  File suspiciously small ({sz} bytes) — may be corrupt")
 else:
     print(f"✅ MedGemma model found: {LLM_MODEL} ({LLM_MODEL.stat().st_size / 1e9:.2f} GB)")
 

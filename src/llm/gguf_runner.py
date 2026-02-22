@@ -130,6 +130,18 @@ class GGUFRunner:
             logger.error("GGUF model not found: %s", self.model_path)
             return False
 
+        file_size = self.model_path.stat().st_size
+        logger.info(
+            "Loading GGUF model: %s (%.2f GB, gpu_layers=%s)",
+            self.model_path,
+            file_size / (1024**3),
+            self.n_gpu_layers,
+        )
+
+        if file_size < 1000:
+            logger.error("GGUF file too small (%d bytes) — likely corrupt", file_size)
+            return False
+
         try:
             from llama_cpp import Llama
 
@@ -143,10 +155,11 @@ class GGUFRunner:
             elapsed_ms = (time.perf_counter() - t0) * 1000
             self._loaded = True
             logger.info(
-                "GGUF model loaded in %.0fms — %s (%.2f GB)",
+                "GGUF model loaded in %.0fms — %s (%.2f GB, gpu_layers=%s)",
                 elapsed_ms,
                 self.model_path.name,
-                self.model_path.stat().st_size / (1024**3),
+                file_size / (1024**3),
+                self.n_gpu_layers,
             )
             return True
 
@@ -154,7 +167,31 @@ class GGUFRunner:
             logger.error("llama-cpp-python not installed — cannot load GGUF model")
             return False
         except Exception as e:
-            logger.error("Failed to load GGUF model: %s", e)
+            logger.error("GGUF load failed (gpu_layers=%s): %s", self.n_gpu_layers, e)
+            # Retry with CPU-only if GPU offload was requested
+            if self.n_gpu_layers != 0:
+                logger.warning("Retrying GGUF load with gpu_layers=0 (CPU only)...")
+                try:
+                    from llama_cpp import Llama
+
+                    t0 = time.perf_counter()
+                    self._model = Llama(
+                        model_path=str(self.model_path),
+                        n_ctx=self.n_ctx,
+                        n_gpu_layers=0,
+                        verbose=False,
+                    )
+                    elapsed_ms = (time.perf_counter() - t0) * 1000
+                    self._loaded = True
+                    self.n_gpu_layers = 0
+                    logger.info(
+                        "GGUF model loaded (CPU fallback) in %.0fms — %s",
+                        elapsed_ms,
+                        self.model_path.name,
+                    )
+                    return True
+                except Exception as e2:
+                    logger.error("GGUF load failed even on CPU: %s", e2)
             return False
 
     def unload(self) -> None:
