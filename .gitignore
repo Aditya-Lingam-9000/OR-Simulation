@@ -32,13 +32,17 @@ env/
 Thumbs.db
 desktop.ini
 
-# --- ONNX Models (large artifacts) ---
-onnx_models/*.onnx
-onnx_models/*.onnx.data
+# --- ONNX / Model weights (large artifacts — NEVER commit) ---
+onnx_models/**/*.onnx
+onnx_models/**/*.onnx.data
+onnx_models/**/*.gguf
+onnx_models/**/*.bin
 !onnx_models/.gitkeep
 
 # --- Models (local, never commit) ---
 models/
+*.gguf
+*.onnx
 *.bin
 *.safetensors
 *.pt
