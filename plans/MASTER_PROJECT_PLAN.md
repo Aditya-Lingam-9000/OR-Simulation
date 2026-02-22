@@ -178,23 +178,23 @@
 
 **Goal**: Rolling transcript buffer and canonical JSON state schema for MedGemma.
 
-- [ ] Rolling buffer module `src/state/rolling_buffer.py`
-  - [ ] Keep last N seconds (configurable, default 180s)
-  - [ ] Append transcripts with timestamps and speaker labels
-- [ ] JSON schema `schemas/surgery_state.schema.json`
-  - [ ] Validate using `jsonschema`
-- [ ] Implement `src/state/serializer.py`
-  - [ ] Normalize rule engine outputs to schema
-  - [ ] Normalize LLM outputs to schema
-- [ ] Tests
-  - [ ] Long simulated transcript → buffer maintains 180s
-  - [ ] Serializer produces valid schema JSON
-- [ ] Sanity checks
-  - [ ] Rolling buffer prints buffer length, earliest/latest timestamp
-  - [ ] Schema validation passes on `tmp/current_state.json`
-- [ ] Create feature branch, commit, PR, merge
-- [ ] Generate `reports/phase5_report.md`
-- [ ] **PHASE 5 PASS: ______ (initials/date/time)**
+- [x] Rolling buffer module `src/state/rolling_buffer.py`
+  - [x] Keep last N seconds (configurable, default 180s)
+  - [x] Append transcripts with timestamps and speaker labels
+- [x] JSON schema `schemas/surgery_state.schema.json`
+  - [x] Validate using `jsonschema`
+- [x] Implement `src/state/serializer.py`
+  - [x] Normalize rule engine outputs to schema
+  - [x] Normalize LLM outputs to schema
+- [x] Tests
+  - [x] Long simulated transcript → buffer maintains 180s
+  - [x] Serializer produces valid schema JSON
+- [x] Sanity checks
+  - [x] Rolling buffer prints buffer length, earliest/latest timestamp
+  - [x] Schema validation passes on `tmp/current_state.json`
+- [x] Create feature branch, commit, PR, merge
+- [x] Generate `reports/phase5_report.md`
+- [x] **PHASE 5 PASS: ✅ (commit 620f5f6 — 2026-02-22)**
 
 ---
 
