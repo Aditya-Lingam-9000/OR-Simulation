@@ -73,7 +73,7 @@ class Orchestrator:
         )
 
         self.rule_worker = RuleWorker(
-            transcript_queue=self.transcript_queue,
+            transcript_queue=asyncio.Queue(maxsize=200),  # own queue; fed by fanout
             state_queue=self.rule_state_queue,
             surgery=surgery,
         )
@@ -177,65 +177,48 @@ class Orchestrator:
 
     async def _transcript_fanout(self) -> None:
         """
-        Fan out transcripts from the main transcript queue to the
-        LLM dispatcher's separate queue.
+        Fan out transcripts from the shared transcript queue to both
+        the Rule Worker and LLM Dispatcher.
 
-        The rule worker reads from transcript_queue directly.
-        This task copies items to the LLM dispatcher so both
-        workers receive the same transcripts without contention.
+        The ASR Worker writes ASRResult objects into self.transcript_queue.
+        This task reads from that queue and copies each item to both
+        the Rule Worker's queue and the LLM Dispatcher's queue so
+        neither worker steals items from the other.
 
-        Note: The rule worker consumes from self.transcript_queue
-        (passed directly). We intercept here by wrapping the
-        rule worker's queue get.
+        The Rule Worker's transcript_queue was originally self.transcript_queue,
+        but now we give it its own internal queue (set up in __init__),
+        and this fanout copies to both.
         """
-        # Instead of intercepting, we use the rule worker's output
-        # to also feed into the LLM dispatcher. But the simpler approach
-        # is to have the transcript queue feed both workers.
-        #
-        # Implementation: wrap the rule_worker process to also enqueue
-        # to LLM dispatcher. We'll use a simple approach — poll the
-        # transcript queue ourselves and re-enqueue to both workers.
-        #
-        # Actually, since both workers share the same transcript_queue,
-        # one will steal items from the other. We need to split.
-        #
-        # The architecture fix: rule_worker reads from transcript_queue
-        # directly (it was created with it). The fanout task monitors
-        # new entries added to the rule_worker's internal results and
-        # feeds the LLM dispatcher.
-        #
-        # Simplest correct approach: have ASR worker output go to a
-        # "raw" queue. This fanout copies to both rule and LLM queues.
-        # But that changes ASR worker's queue reference.
-        #
-        # For now: The rule worker reads from self.transcript_queue.
-        # We monitor the state_queue outputs from the rule worker.
-        # When new rule results come in, we also feed the original
-        # transcript text to the LLM dispatcher.
-        # But we don't have the original text anymore.
-        #
-        # CORRECT SOLUTION: Use the rolling buffer in LLM dispatcher.
-        # The LLM dispatcher gets transcripts from the ASR worker's
-        # output via a parallel feed. We create a wrapper around
-        # transcript_queue that copies to LLM.
+        logger.info("Transcript fanout started")
+        while self._running:
+            try:
+                try:
+                    item = await asyncio.wait_for(
+                        self.transcript_queue.get(), timeout=0.5
+                    )
+                except asyncio.TimeoutError:
+                    continue
 
-        # We re-implement this: the ASR worker's transcript_queue
-        # is consumed solely by rule_worker. We intercept after the
-        # rule worker processes by having the rule worker's _process_loop
-        # also enqueue text to the LLM dispatcher.
-        # Simplest: just poll the rolling buffer in the LLM dispatcher
-        # and update it from here as the rule worker processes.
+                if item is None:
+                    break
 
-        # Wait — the ASR Worker puts ASRResult into transcript_queue.
-        # The Rule Worker reads from transcript_queue.
-        # We need the LLM Dispatcher to also see the text.
-        # Solution: wrap the transcript_queue to fan out.
+                # Copy to rule worker
+                try:
+                    self.rule_worker.transcript_queue.put_nowait(item)
+                except asyncio.QueueFull:
+                    logger.warning("Rule worker queue full — dropping transcript")
 
-        pass  # Fan-out is handled differently — see _setup_fanout()
+                # Copy to LLM dispatcher
+                try:
+                    self.llm_dispatcher.transcript_queue.put_nowait(item)
+                except asyncio.QueueFull:
+                    logger.warning("LLM dispatcher queue full — dropping transcript")
 
-    async def _setup_fanout(self) -> None:
-        """This is unused — fan-out is handled by feed_transcript()."""
-        pass
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                logger.exception("Fanout error")
+        logger.info("Transcript fanout stopped")
 
     # ------------------------------------------------------------------
     # External transcript feed
@@ -259,6 +242,9 @@ class Orchestrator:
         This is the main entry point for text-based pipeline usage
         (e.g., from the API or tests, bypassing ASR).
 
+        The text is enqueued to the shared transcript_queue, where the
+        fanout task distributes it to both rule worker and LLM dispatcher.
+
         Args:
             text: Transcript text.
             speaker: Speaker label.
@@ -266,11 +252,8 @@ class Orchestrator:
         if not self._running:
             return
 
-        # Feed to rule worker
-        await self.rule_worker.transcript_queue.put(text)
-
-        # Feed to LLM dispatcher
-        await self.llm_dispatcher.transcript_queue.put(text)
+        # Push into shared queue — fanout distributes to both workers
+        await self.transcript_queue.put(text)
 
     # ------------------------------------------------------------------
     # State access

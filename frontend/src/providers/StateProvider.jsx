@@ -3,6 +3,9 @@
  *
  * Provides surgery state + connection status via React Context.
  * Auto-reconnects on disconnect with exponential backoff.
+ *
+ * Supports remote backend URL via `backendUrl` prop (e.g., ngrok URL for Kaggle).
+ * If not set, uses the current browser host (with Vite proxy in dev mode).
  */
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 
@@ -17,15 +20,23 @@ const INITIAL_STATE = {
   source: "rule",
 };
 
-const WS_URL =
-  (window.location.protocol === "https:" ? "wss://" : "ws://") +
-  window.location.host +
-  "/ws/state";
+/**
+ * Build WebSocket URL for state.
+ * @param {string|null} backendUrl — e.g. "https://xxxx.ngrok-free.app"
+ */
+function buildWsUrl(backendUrl) {
+  if (backendUrl) {
+    const base = backendUrl.replace(/^http/, "ws").replace(/\/$/, "");
+    return `${base}/ws/state`;
+  }
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}/ws/state`;
+}
 
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 16000;
 
-export function StateProvider({ children }) {
+export function StateProvider({ children, backendUrl }) {
   const [state, setState] = useState(INITIAL_STATE);
   const [connected, setConnected] = useState(false);
   const [reconnectCount, setReconnectCount] = useState(0);
@@ -37,7 +48,7 @@ export function StateProvider({ children }) {
     if (!mountedRef.current) return;
 
     try {
-      const ws = new WebSocket(WS_URL);
+      const ws = new WebSocket(buildWsUrl(backendUrl));
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -101,17 +112,26 @@ export function StateProvider({ children }) {
     };
   }, [connect]);
 
-  const value = { state, connected, reconnectCount };
+  const value = { state, connected, reconnectCount, backendUrl };
 
   return <StateContext.Provider value={value}>{children}</StateContext.Provider>;
 }
 
 /**
  * Hook to consume the surgery state context.
- * @returns {{ state: object, connected: boolean, reconnectCount: number }}
+ * @returns {{ state: object, connected: boolean, reconnectCount: number, backendUrl: string|null }}
  */
 export function useORState() {
   const ctx = useContext(StateContext);
   if (!ctx) throw new Error("useORState must be used within <StateProvider>");
   return ctx;
+}
+
+/**
+ * Build the REST API base URL for fetch calls.
+ * Returns "" (empty, relative) for local proxied dev, or the full ngrok URL for remote.
+ */
+export function useApiBase() {
+  const { backendUrl } = useORState();
+  return backendUrl ? backendUrl.replace(/\/$/, "") : "";
 }

@@ -10,13 +10,14 @@
  *   OverrideDialog — modal (on machine click)
  */
 import React, { useEffect, useState, useCallback } from "react";
-import { StateProvider, useORState } from "./providers/StateProvider";
+import { StateProvider, useORState, useApiBase } from "./providers/StateProvider";
 import OPRoom from "./components/OPRoom";
 import MachineList from "./components/MachineList";
 import SurgerySelector from "./components/SurgerySelector";
 import OverrideDialog from "./components/OverrideDialog";
 import AgentOverlay from "./components/AgentOverlay";
 import StatusBar from "./components/StatusBar";
+import MicRecorder from "./components/MicRecorder";
 
 // Layout JSON imports (static, bundled at build)
 import pcnlLayout from "@configs/layouts/pcnl_layout.json";
@@ -30,7 +31,8 @@ const LAYOUTS = {
 };
 
 function AppContent() {
-  const { state, connected } = useORState();
+  const { state, connected, backendUrl } = useORState();
+  const apiBase = useApiBase();
   const [machinesData, setMachinesData] = useState({});
   const [overrideMachine, setOverrideMachine] = useState(null);
 
@@ -39,11 +41,11 @@ function AppContent() {
 
   // Fetch machines config when surgery changes
   useEffect(() => {
-    fetch("/machines")
+    fetch(`${apiBase}/machines`)
       .then((r) => r.json())
       .then((data) => setMachinesData(data))
       .catch((err) => console.error("[App] machines fetch:", err));
-  }, [surgery]);
+  }, [surgery, apiBase]);
 
   const handleMachineClick = useCallback((machine) => {
     setOverrideMachine(machine);
@@ -54,7 +56,7 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-or-bg flex flex-col">
       {/* ── Header ── */}
-      <header className="bg-or-panel border-b border-gray-700 px-4 py-3 flex items-center justify-between">
+      <header className="bg-or-panel border-b border-gray-700 px-4 py-3 flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold text-white tracking-wide">
             OR-Symphony
@@ -63,12 +65,15 @@ function AppContent() {
             Predictive Surgical State Engine
           </span>
         </div>
-        <SurgerySelector
-          currentSurgery={surgery}
-          onSwitched={() => {
-            /* state updates arrive via WebSocket */
-          }}
-        />
+        <div className="flex items-center gap-4 flex-wrap">
+          <MicRecorder backendUrl={backendUrl} />
+          <SurgerySelector
+            currentSurgery={surgery}
+            onSwitched={() => {
+              /* state updates arrive via WebSocket */
+            }}
+          />
+        </div>
       </header>
 
       {/* ── Main content ── */}
@@ -149,9 +154,29 @@ function AppContent() {
   );
 }
 
+/**
+ * Resolve the backend URL from (in priority order):
+ *   1. ?backend=... URL search parameter
+ *   2. VITE_BACKEND_URL environment variable
+ *   3. null (use the current host / Vite proxy)
+ */
+function resolveBackendUrl() {
+  // URL param (e.g., http://localhost:3000/?backend=https://xxxx.ngrok-free.app)
+  const params = new URLSearchParams(window.location.search);
+  const fromParam = params.get("backend");
+  if (fromParam) return fromParam.replace(/\/$/, "");
+
+  // Vite env variable (set in .env or at build time)
+  const fromEnv = import.meta.env.VITE_BACKEND_URL;
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+
+  return null; // local proxy
+}
+
 export default function App() {
+  const backendUrl = resolveBackendUrl();
   return (
-    <StateProvider>
+    <StateProvider backendUrl={backendUrl}>
       <AppContent />
     </StateProvider>
   );

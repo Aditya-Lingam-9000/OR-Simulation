@@ -15,16 +15,20 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import struct
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional
 
+import numpy as np
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from src.utils.constants import (
+    AUDIO_SAMPLE_RATE,
     DEFAULT_SURGERY,
     SAFETY_DISCLAIMER,
     SUPPORTED_SURGERIES,
@@ -188,9 +192,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("⚠️  %s", SAFETY_DISCLAIMER)
 
     # Create and start orchestrator
+    # LLM_STUB=0 or LLM_REAL=1 enables real MedGemma inference (Kaggle GPU)
+    llm_stub = os.environ.get("LLM_STUB", "1") == "1"
+    if os.environ.get("LLM_REAL", "0") == "1":
+        llm_stub = False
+    logger.info("LLM mode: %s", "STUB" if llm_stub else "REAL (MedGemma)")
+
     orchestrator = Orchestrator(
         surgery=app_state.current_surgery,
-        llm_stub=True,  # Stub by default; set to False for real inference
+        llm_stub=llm_stub,
         on_state_update=_broadcast_state,
     )
     app_state.orchestrator = orchestrator
@@ -415,3 +425,103 @@ async def websocket_state(websocket: WebSocket) -> None:
             "WebSocket client disconnected. Total clients: %d",
             len(app_state.connected_clients),
         )
+
+
+# ---------------------------------------------------------------------------
+# Audio WebSocket Endpoint
+# ---------------------------------------------------------------------------
+
+# Browser audio config
+_BROWSER_SAMPLE_RATE = 16000  # AudioWorklet resamples to 16kHz before sending
+_CHUNK_SAMPLES = 8000         # 0.5s at 16kHz
+
+
+def _resample_linear(audio: np.ndarray, src_rate: int, dst_rate: int) -> np.ndarray:
+    """Simple linear interpolation resample (for when scipy is unavailable)."""
+    if src_rate == dst_rate:
+        return audio
+    ratio = dst_rate / src_rate
+    out_len = int(len(audio) * ratio)
+    indices = np.linspace(0, len(audio) - 1, out_len)
+    return np.interp(indices, np.arange(len(audio)), audio).astype(np.float32)
+
+
+@app.websocket("/ws/audio")
+async def websocket_audio(websocket: WebSocket) -> None:
+    """
+    WebSocket endpoint for browser microphone audio.
+
+    The browser sends binary frames of float32 PCM audio (16kHz mono).
+    The AudioWorklet on the browser side handles resampling from the
+    native rate (usually 48kHz) down to 16kHz before transmission.
+
+    Protocol:
+      - First message (text/JSON): {"sampleRate": 16000}  configuration
+      - Subsequent messages (binary): raw float32 PCM samples
+    """
+    await websocket.accept()
+    logger.info("Audio WebSocket client connected")
+
+    client_sample_rate = _BROWSER_SAMPLE_RATE
+    audio_buffer = np.array([], dtype=np.float32)
+    chunks_received = 0
+
+    try:
+        while True:
+            message = await websocket.receive()
+
+            if message.get("type") == "websocket.disconnect":
+                break
+
+            # Text message — configuration
+            if "text" in message:
+                try:
+                    config = json.loads(message["text"])
+                    if "sampleRate" in config:
+                        client_sample_rate = int(config["sampleRate"])
+                        logger.info("Audio client sample rate: %d Hz", client_sample_rate)
+                    await websocket.send_json({"status": "ok", "sampleRate": client_sample_rate})
+                except json.JSONDecodeError:
+                    pass
+                continue
+
+            # Binary message — PCM audio
+            if "bytes" in message:
+                raw_bytes = message["bytes"]
+                if not raw_bytes:
+                    continue
+
+                # Convert bytes to float32 numpy array
+                try:
+                    audio = np.frombuffer(raw_bytes, dtype=np.float32)
+                except ValueError:
+                    logger.warning("Invalid audio bytes (len=%d)", len(raw_bytes))
+                    continue
+
+                # Resample if needed
+                if client_sample_rate != AUDIO_SAMPLE_RATE:
+                    audio = _resample_linear(audio, client_sample_rate, AUDIO_SAMPLE_RATE)
+
+                # Accumulate into buffer
+                audio_buffer = np.concatenate([audio_buffer, audio])
+                chunks_received += 1
+
+                # Flush buffer in 0.5s chunks to the pipeline
+                while len(audio_buffer) >= _CHUNK_SAMPLES:
+                    chunk = audio_buffer[:_CHUNK_SAMPLES]
+                    audio_buffer = audio_buffer[_CHUNK_SAMPLES:]
+
+                    # Feed to orchestrator
+                    if app_state.orchestrator is not None and app_state.orchestrator.is_running:
+                        await app_state.orchestrator.feed_audio(chunk)
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.error("Audio WebSocket error: %s", e)
+    finally:
+        # Flush remaining buffer if significant
+        if len(audio_buffer) >= AUDIO_SAMPLE_RATE // 4:  # > 0.25s
+            if app_state.orchestrator is not None and app_state.orchestrator.is_running:
+                await app_state.orchestrator.feed_audio(audio_buffer)
+        logger.info("Audio WebSocket disconnected (received %d chunks)", chunks_received)

@@ -240,6 +240,36 @@ async def ws_state(websocket: WebSocket):
         logger.info("Client disconnected (%d remaining)", len(sim.clients))
 
 
+@app.websocket("/ws/audio")
+async def ws_audio(websocket: WebSocket):
+    """Simulated audio WebSocket — accepts audio, triggers state updates."""
+    await websocket.accept()
+    logger.info("Audio WebSocket client connected")
+    chunks = 0
+    try:
+        while True:
+            message = await websocket.receive()
+            if message.get("type") == "websocket.disconnect":
+                break
+            if "text" in message:
+                # Config message
+                await websocket.send_json({"status": "ok", "sampleRate": 16000})
+            elif "bytes" in message:
+                chunks += 1
+                # Every 3 audio chunks, generate a simulated transcript event
+                if chunks % 3 == 0:
+                    state_json = sim.generate_state()
+                    for client in list(sim.clients):
+                        try:
+                            await client.send_json(state_json)
+                        except Exception:
+                            sim.clients.remove(client)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        logger.info("Audio WebSocket disconnected (received %d chunks)", chunks)
+
+
 # ---------------------------------------------------------------------------
 # Background broadcaster
 # ---------------------------------------------------------------------------

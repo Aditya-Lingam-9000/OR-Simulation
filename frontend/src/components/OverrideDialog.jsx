@@ -10,6 +10,7 @@
  *   onClose  — () => void
  */
 import React, { useState } from "react";
+import { useApiBase } from "../providers/StateProvider";
 
 const ACTIONS = ["ON", "OFF", "STANDBY"];
 
@@ -18,6 +19,7 @@ export default function OverrideDialog({ machine, isOn, onClose }) {
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const apiBase = useApiBase();
 
   if (!machine) return null;
 
@@ -26,7 +28,7 @@ export default function OverrideDialog({ machine, isOn, onClose }) {
     setSubmitting(true);
     setResult(null);
     try {
-      const res = await fetch("/override", {
+      const res = await fetch(`${apiBase}/override`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

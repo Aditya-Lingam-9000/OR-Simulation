@@ -659,22 +659,40 @@ class TestOrchestratorFeedTranscript:
 
     @pytest.mark.asyncio
     async def test_feed_transcript_reaches_rule_worker(self):
-        """Verify transcript gets to rule worker's queue."""
+        """Verify transcript gets to rule worker's queue via fanout."""
         o = Orchestrator(surgery="PCNL", llm_stub=True)
-        # Don't start — manual test
+        # Start fanout task manually (without full start)
         o._running = True
+        o._fanout_task = asyncio.create_task(o._transcript_fanout())
 
         await o.feed_transcript("turn on cautery")
+        await asyncio.sleep(0.1)  # let fanout distribute
         assert o.rule_worker.transcript_queue.qsize() >= 1
+
+        o._running = False
+        o._fanout_task.cancel()
+        try:
+            await o._fanout_task
+        except asyncio.CancelledError:
+            pass
 
     @pytest.mark.asyncio
     async def test_feed_transcript_reaches_llm_dispatcher(self):
-        """Verify transcript gets to LLM dispatcher's queue."""
+        """Verify transcript gets to LLM dispatcher's queue via fanout."""
         o = Orchestrator(surgery="PCNL", llm_stub=True)
         o._running = True
+        o._fanout_task = asyncio.create_task(o._transcript_fanout())
 
         await o.feed_transcript("check the imaging")
+        await asyncio.sleep(0.1)  # let fanout distribute
         assert o.llm_dispatcher.transcript_queue.qsize() >= 1
+
+        o._running = False
+        o._fanout_task.cancel()
+        try:
+            await o._fanout_task
+        except asyncio.CancelledError:
+            pass
 
 
 class TestOrchestratorOverrides:

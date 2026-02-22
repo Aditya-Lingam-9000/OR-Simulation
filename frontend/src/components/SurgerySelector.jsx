@@ -5,24 +5,26 @@
  * then POSTs to /select_surgery when the user picks a new one.
  */
 import React, { useEffect, useState } from "react";
+import { useApiBase } from "../providers/StateProvider";
 
 export default function SurgerySelector({ currentSurgery, onSwitched }) {
   const [surgeries, setSurgeries] = useState([]);
   const [loading, setLoading] = useState(false);
+  const apiBase = useApiBase();
 
   useEffect(() => {
-    fetch("/surgeries")
+    fetch(`${apiBase}/surgeries`)
       .then((r) => r.json())
       .then((data) => setSurgeries(data))
       .catch((err) => console.error("[SurgerySelector] fetch error:", err));
-  }, []);
+  }, [apiBase]);
 
   const handleChange = async (e) => {
     const selected = e.target.value;
     if (selected === currentSurgery) return;
     setLoading(true);
     try {
-      const res = await fetch("/select_surgery", {
+      const res = await fetch(`${apiBase}/select_surgery`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ surgery: selected }),
