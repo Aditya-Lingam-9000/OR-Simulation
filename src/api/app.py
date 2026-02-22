@@ -433,7 +433,7 @@ async def websocket_state(websocket: WebSocket) -> None:
 
 # Browser audio config
 _BROWSER_SAMPLE_RATE = 16000  # AudioWorklet resamples to 16kHz before sending
-_CHUNK_SAMPLES = 24000        # 1.5s at 16kHz — MedASR CTC needs ≥128 feature frames (~1.28s)
+_CHUNK_SAMPLES = 48000        # 3s at 16kHz — captures full voice commands
 
 
 def _resample_linear(audio: np.ndarray, src_rate: int, dst_rate: int) -> np.ndarray:

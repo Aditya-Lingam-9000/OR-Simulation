@@ -85,13 +85,25 @@ class SherpaASRRunner(BaseASRRunner):
         self._loaded = True
         logger.info("Sherpa-ONNX ASR model loaded successfully")
 
+    # MedASR CTC int8 ONNX model has a fixed time-axis of 128 frames.
+    # At 16 kHz with 10 ms hop (160 samples/frame): 128 × 160 = 20 480 samples.
+    _FRAME_HOP = 160
+    _MODEL_FRAMES = 128
+    _SEGMENT_SAMPLES = _MODEL_FRAMES * _FRAME_HOP  # 20 480
+
     def transcribe(self, audio: np.ndarray, sample_rate: int = 16000) -> ASRResult:
         """
         Transcribe an audio chunk.
 
+        The MedASR CTC model accepts exactly 128 time-frames per
+        inference call (= 20 480 samples at 16 kHz).  Longer audio is
+        split into non-overlapping 20 480-sample windows; shorter audio
+        is zero-padded on the right.  Texts from each window are
+        concatenated with a space separator.
+
         Args:
-            audio: Float32 numpy array, mono, 16kHz.
-            sample_rate: Audio sample rate (must be 16000).
+            audio: Float32 numpy array, mono, 16 kHz.
+            sample_rate: Audio sample rate (must be 16 000).
 
         Returns:
             ASRResult with transcript, confidence, and timing.
@@ -102,33 +114,35 @@ class SherpaASRRunner(BaseASRRunner):
         total_start = time.perf_counter()
         audio_duration_s = len(audio) / sample_rate
 
-        # MedASR CTC model needs ≥128 feature frames.
-        # At 16kHz with 10ms hop (160 samples/frame) that is ~1.28s / 20480 samples.
-        _MIN_SAMPLES = 20480  # 128 frames × 160 samples/frame
-        if len(audio) < _MIN_SAMPLES:
-            logger.debug(
-                "Audio too short for ASR (%d samples < %d min), skipping",
-                len(audio), _MIN_SAMPLES,
-            )
-            return ASRResult(
-                full_text="",
-                segments=[],
-                processing_time_ms=0.0,
-                audio_duration_s=audio_duration_s,
-            )
-
         # Ensure float32
         if audio.dtype != np.float32:
             audio = audio.astype(np.float32)
 
-        # Create stream, feed audio, decode
-        stream = self._recognizer.create_stream()
-        stream.accept_waveform(sample_rate, audio)
-        self._recognizer.decode_stream(stream)
+        # --- split / pad to fixed-length segments -------------------------
+        seg_len = self._SEGMENT_SAMPLES
+        texts: list[str] = []
 
-        text = stream.result.text.strip()
-        # sherpa-onnx doesn't provide per-token confidence for CTC greedy;
-        # use a heuristic: non-empty = 0.85, empty = 0.0
+        if len(audio) == 0:
+            # Nothing to decode
+            pass
+        elif len(audio) <= seg_len:
+            # Pad to exactly seg_len with silence
+            padded = np.zeros(seg_len, dtype=np.float32)
+            padded[: len(audio)] = audio
+            texts.append(self._decode_segment(padded, sample_rate))
+        else:
+            # Process in non-overlapping windows
+            offset = 0
+            while offset < len(audio):
+                window = audio[offset : offset + seg_len]
+                if len(window) < seg_len:
+                    padded = np.zeros(seg_len, dtype=np.float32)
+                    padded[: len(window)] = window
+                    window = padded
+                texts.append(self._decode_segment(window, sample_rate))
+                offset += seg_len
+
+        text = " ".join(t for t in texts if t).strip()
         confidence = 0.85 if text else 0.0
 
         total_ms = (time.perf_counter() - total_start) * 1000
@@ -174,6 +188,13 @@ class SherpaASRRunner(BaseASRRunner):
         )
 
         return result
+
+    def _decode_segment(self, audio: np.ndarray, sample_rate: int) -> str:
+        """Decode exactly ``_SEGMENT_SAMPLES`` samples and return text."""
+        stream = self._recognizer.create_stream()
+        stream.accept_waveform(sample_rate, audio)
+        self._recognizer.decode_stream(stream)
+        return stream.result.text.strip()
 
     def transcribe_streaming(
         self, audio: np.ndarray, sample_rate: int = 16000
