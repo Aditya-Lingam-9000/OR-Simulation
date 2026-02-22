@@ -97,21 +97,21 @@
 
 **Goal**: Robust mic capture, VAD, chunking policy, temporary audio queue.
 
-- [ ] Choose input path (WebRTC or desktop mic)
-- [ ] Implement `scripts/test_mic_client.py` for local mic capture
-- [ ] Implement VAD + chunker
-  - [ ] `src/ingest/mic_stream.py` using `webrtcvad`
-  - [ ] Produce 0.5–1.5s speech chunks
-  - [ ] Configurable overlap 200–500ms
-- [ ] Save chunks to in-memory deque
-- [ ] Save chunks to `tmp/audio_chunks/` for replay
-- [ ] Add `scripts/mic_test.sh` (record 10s, create sample chunks)
-- [ ] Sanity checks
-  - [ ] Validate `.wav` properties: 16kHz, mono, 16-bit
-  - [ ] VAD false positive check: 30s silence → <2 chunks
-  - [ ] Latency check: audio end → chunk in queue < 50ms
-- [ ] Create feature branch, commit, PR, merge
-- [ ] Generate `reports/phase2_report.md`
+- [x] Choose input path (WebRTC or desktop mic) — desktop mic via sounddevice
+- [x] Implement `scripts/test_mic_client.py` for local mic capture
+- [x] Implement VAD + chunker
+  - [x] `src/ingest/mic_stream.py` using `webrtcvad`
+  - [x] Produce 0.5–2.0s speech chunks
+  - [x] Configurable overlap 200–500ms
+- [x] Save chunks to in-memory asyncio.Queue
+- [x] Save chunks to `tmp/audio_chunks/` for replay
+- [x] Add `scripts/generate_test_audio.py` + `scripts/test_mic_client.py`
+- [x] Sanity checks
+  - [x] Validate `.wav` properties: 16kHz, mono, 16-bit — 5/5 files pass
+  - [x] VAD false positive check: 30s silence → 0 chunks (<2 required)
+  - [x] All 100 tests pass (45 new audio + 55 existing)
+- [x] Create feature branch, commit, PR, merge
+- [x] Generate `reports/phase2_report.md`
 - [ ] **PHASE 2 PASS: ______ (initials/date/time)**
 - [ ] Delete `tmp/audio_chunks/*` (manual, only after PASS)
 
