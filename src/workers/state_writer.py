@@ -67,6 +67,9 @@ class StateWriter:
         self._current_state: Dict[str, Any] = self._default_state()
         self._overrides: List[Dict[str, Any]] = []
 
+        # Accumulated machine states (persists across rule patches)
+        self._accumulated_machines: Dict[str, str] = {}  # machine_id → "ON"/"OFF"
+
         # State
         self._running = False
         self._task: Optional[asyncio.Task] = None
@@ -167,15 +170,40 @@ class StateWriter:
                 logger.exception("StateWriter error in process loop")
                 await asyncio.sleep(0.5)
 
+    def _accumulate_machines(self, patch: Dict[str, Any]) -> None:
+        """Accumulate machine ON/OFF states from a rule patch."""
+        machines = patch.get("machines", {})
+        for mid in machines.get("1", []):
+            self._accumulated_machines[mid] = "ON"
+        for mid in machines.get("0", []):
+            self._accumulated_machines[mid] = "OFF"
+
+    def _build_accumulated_machines(self) -> Dict[str, list]:
+        """Build the machines dict from accumulated state."""
+        on: list = []
+        off: list = []
+        for mid, action in sorted(self._accumulated_machines.items()):
+            if action == "ON":
+                on.append(mid)
+            else:
+                off.append(mid)
+        return {"0": off, "1": on}
+
     async def _merge_and_write(self) -> None:
         """Merge rule + LLM outputs, apply overrides, write atomically, broadcast."""
         try:
+            # Accumulate machine states from rule patch
+            if self._latest_rule_state is not None:
+                self._accumulate_machines(self._latest_rule_state)
+
             # Merge via serializer
             if self._latest_rule_state is not None or self._latest_llm_state is not None:
                 merged = self.serializer.merge(
                     rule_output=self._latest_rule_state or self._default_state(),
                     llm_output=self._latest_llm_state,
                 )
+                # Replace machines with the full accumulated state
+                merged["machines"] = self._build_accumulated_machines()
                 self._merge_count += 1
             else:
                 merged = self._current_state
@@ -212,6 +240,12 @@ class StateWriter:
 
             # Fire broadcast callback (only if safe)
             if self._on_update is not None and safety_result.is_safe:
+                on_list = merged.get("machines", {}).get("1", [])
+                off_list = merged.get("machines", {}).get("0", [])
+                logger.info(
+                    "\U0001f4e1 State broadcast — ON: %s, OFF: %s",
+                    on_list or "(none)", off_list or "(none)",
+                )
                 try:
                     await self._on_update(merged)
                 except Exception as e:

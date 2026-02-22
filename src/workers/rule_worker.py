@@ -102,11 +102,18 @@ class RuleWorker:
                     self._matched_count += 1
                     patch = result.to_json_patch()
                     await self.state_queue.put(patch)
-                    logger.debug(
-                        "Rule match: '%s' -> %d toggles (%.1fms)",
-                        text[:50],
-                        len(result.toggles),
-                        elapsed_ms,
+                    toggle_desc = ", ".join(
+                        f"{t.machine_name} → {t.action}"
+                        for t in result.toggles
+                    )
+                    logger.info(
+                        "\u2699\ufe0f  Rule match: \"%s\" => %s",
+                        text[:60], toggle_desc,
+                    )
+                else:
+                    logger.info(
+                        "\U0001f50d No rule match for: \"%s\"",
+                        text[:60],
                     )
 
             except Exception:

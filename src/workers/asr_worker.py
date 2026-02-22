@@ -162,11 +162,10 @@ class ASRWorker:
             self._total_inference_ms += result.processing_time_ms
 
             if result.full_text:
-                logger.debug(
-                    "ASR: '%s' (%.0fms, conf=%.2f)",
-                    result.full_text[:60],
+                logger.info(
+                    "\U0001f3a4 ASR transcript: \"%s\" (%.0fms)",
+                    result.full_text,
                     result.processing_time_ms,
-                    result.segments[0].confidence if result.segments else 0.0,
                 )
 
             return result
