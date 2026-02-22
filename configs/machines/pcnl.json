@@ -1,0 +1,105 @@
+{
+  "surgery": "PCNL",
+  "full_name": "Percutaneous Nephrolithotomy",
+  "environment": "Urology OR",
+  "phases": [
+    {"id": "Phase1", "name": "Patient Preparation", "description": "Positioning, draping, time-out"},
+    {"id": "Phase2", "name": "Anesthesia Induction", "description": "General anesthesia, intubation"},
+    {"id": "Phase3", "name": "Access & Tract Creation", "description": "Fluoroscopic needle placement, dilation"},
+    {"id": "Phase4", "name": "Stone Management", "description": "Lithotripsy, extraction, irrigation"},
+    {"id": "Phase5", "name": "Hemostasis & Closure", "description": "Nephrostomy tube, hemostasis"},
+    {"id": "Phase6", "name": "Emergence & Transfer", "description": "Extubation, recovery"}
+  ],
+  "machines": {
+    "M01": {
+      "name": "Patient Monitor",
+      "category": "Monitoring",
+      "description": "Displays ECG, SpO2, BP, respiration, temperature",
+      "default_state": "ON",
+      "phase_usage": ["Phase1", "Phase2", "Phase3", "Phase4", "Phase5", "Phase6"],
+      "triggers": ["baseline monitoring", "attach monitor", "connect monitor"],
+      "aliases": ["monitor", "patient monitor", "vitals monitor", "vital signs", "vitals"],
+      "ui": {"icon": "monitor", "zone": "head_side"}
+    },
+    "M02": {
+      "name": "Anesthesia Machine",
+      "category": "Life Support",
+      "description": "Delivers anesthetic gases and oxygen",
+      "default_state": "OFF",
+      "phase_usage": ["Phase2", "Phase3", "Phase4", "Phase5"],
+      "triggers": ["start anesthesia", "induction", "begin anesthesia", "anesthesia ready"],
+      "aliases": ["anesthesia", "anesthesia machine", "gas machine", "anesthetic"],
+      "ui": {"icon": "anesthesia", "zone": "anesthesia_corner"}
+    },
+    "M03": {
+      "name": "Ventilator",
+      "category": "Life Support",
+      "description": "Provides mechanical ventilation after intubation",
+      "default_state": "OFF",
+      "phase_usage": ["Phase2", "Phase3", "Phase4", "Phase5"],
+      "triggers": ["intubation complete", "start ventilator", "begin ventilation", "tube is in"],
+      "aliases": ["ventilator", "vent", "breathing machine", "mechanical ventilation", "ventilation"],
+      "ui": {"icon": "ventilator", "zone": "anesthesia_corner"}
+    },
+    "M04": {
+      "name": "C-Arm Fluoroscopy",
+      "category": "Imaging",
+      "description": "Real-time X-ray guidance for kidney access",
+      "default_state": "OFF",
+      "phase_usage": ["Phase3", "Phase4"],
+      "triggers": ["start imaging", "fluoro on", "bring in the c-arm", "need fluoroscopy", "x-ray on"],
+      "aliases": ["fluoroscopy", "fluoro", "c-arm", "carm", "x-ray", "xray", "imaging"],
+      "ui": {"icon": "carm", "zone": "side_left"}
+    },
+    "M05": {
+      "name": "Irrigation Pump",
+      "category": "Fluid Control",
+      "description": "Maintains continuous saline flow through nephroscope",
+      "default_state": "OFF",
+      "phase_usage": ["Phase3", "Phase4"],
+      "triggers": ["start irrigation", "irrigation on", "saline flow", "begin irrigation"],
+      "aliases": ["irrigation", "irrigation pump", "saline pump", "irrigator", "saline"],
+      "ui": {"icon": "pump", "zone": "table_side"}
+    },
+    "M06": {
+      "name": "Suction Apparatus",
+      "category": "Fluid Control",
+      "description": "Removes blood and irrigation fluid from operative field",
+      "default_state": "OFF",
+      "phase_usage": ["Phase3", "Phase4"],
+      "triggers": ["suction on", "clear field", "start suction", "suction please", "need suction"],
+      "aliases": ["suction", "suction apparatus", "aspirator", "vacuum", "suctioning"],
+      "ui": {"icon": "suction", "zone": "table_side"}
+    },
+    "M07": {
+      "name": "Lithotripter",
+      "category": "Stone Management",
+      "description": "Breaks kidney stones using ultrasonic or pneumatic energy",
+      "default_state": "OFF",
+      "phase_usage": ["Phase4"],
+      "triggers": ["start lithotripsy", "fragment stone", "begin lithotripsy", "activate lithotripter"],
+      "aliases": ["lithotripter", "lithotripsy", "stone breaker", "stone crusher", "litho"],
+      "ui": {"icon": "lithotripter", "zone": "table_side"}
+    },
+    "M08": {
+      "name": "Endoscopic Camera System",
+      "category": "Visualization",
+      "description": "Nephroscope view with camera on display",
+      "default_state": "OFF",
+      "phase_usage": ["Phase3", "Phase4"],
+      "triggers": ["camera on", "scope view", "start camera", "show scope", "display on"],
+      "aliases": ["camera", "endoscope", "nephroscope", "scope", "endoscopic camera", "display"],
+      "ui": {"icon": "camera", "zone": "display_wall"}
+    },
+    "M09": {
+      "name": "OR Lights",
+      "category": "Lighting",
+      "description": "Overhead surgical illumination",
+      "default_state": "ON",
+      "phase_usage": ["Phase1", "Phase2", "Phase3", "Phase4", "Phase5"],
+      "triggers": ["lights on", "increase brightness", "lights up", "brighten", "dim lights"],
+      "aliases": ["lights", "or lights", "surgical lights", "overhead lights", "lamp"],
+      "ui": {"icon": "light", "zone": "ceiling"}
+    }
+  }
+}

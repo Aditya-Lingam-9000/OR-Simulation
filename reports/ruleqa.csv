@@ -1,0 +1,68 @@
+sentence,surgery,expected_machine_id,expected_action,expected_temporal,negated,notes
+"start the ventilator",PCNL,M03,ON,none,false,Basic activation
+"turn on the suction",PCNL,M06,ON,none,false,Basic activation with turn on
+"stop the lithotripter",PCNL,M07,OFF,none,false,Deactivation with stop
+"turn off the irrigation pump",PCNL,M05,OFF,none,false,Deactivation with turn off
+"camera on",PCNL,M08,ON,none,false,Trigger phrase from config
+"fluoro on",PCNL,M04,ON,none,false,Trigger phrase for fluoroscopy
+"activate the patient monitor",PCNL,M01,ON,none,false,Activate keyword
+"disable the OR lights",PCNL,M09,OFF,none,false,Disable keyword
+"power on the anesthesia machine",PCNL,M02,ON,none,false,Power on keyword
+"shut down the ventilator",PCNL,M03,OFF,none,false,Shut down keyword
+"start the vent",PCNL,M03,ON,none,false,Alias 'vent' for ventilator
+"start the breathing machine",PCNL,M03,ON,none,false,Alias 'breathing machine'
+"bring in the c-arm",PCNL,M04,ON,none,false,Alias and trigger for C-Arm
+"turn on the x-ray",PCNL,M04,ON,none,false,Alias 'x-ray' for fluoroscopy
+"start the saline pump",PCNL,M05,ON,none,false,Alias 'saline pump'
+"turn on the aspirator",PCNL,M06,ON,none,false,Alias 'aspirator' for suction
+"activate the stone breaker",PCNL,M07,ON,none,false,Alias 'stone breaker'
+"start the litho",PCNL,M07,ON,none,false,Short alias 'litho'
+"turn on the endoscope",PCNL,M08,ON,none,false,Alias 'endoscope' for camera
+"start the gas machine",PCNL,M02,ON,none,false,Alias 'gas machine' for anesthesia
+"don't start the suction",PCNL,M06,OFF,none,true,Negation flips ON→OFF
+"do not start the ventilator",PCNL,M03,OFF,none,true,Full negation
+"not yet the lithotripter",PCNL,M07,OFF,none,true,Implicit negation
+"never start the irrigation",PCNL,M05,OFF,none,true,Strong negation
+"cancel the ventilator",PCNL,M03,OFF,none,true,Cancel as negation
+"skip the suction",PCNL,M06,OFF,none,true,Skip as negation
+"hold off on the lithotripter",PCNL,M07,OFF,none,true,Hold off negation
+"no need for the fluoro",PCNL,M04,OFF,none,true,No need negation
+"don't stop the ventilator",PCNL,M03,ON,none,true,Double negation: don't + stop → ON
+"forget about the lights",PCNL,M09,OFF,none,true,Forget as negation
+"put the ventilator on standby",PCNL,M03,STANDBY,none,false,Standby action
+"pause the suction",PCNL,M06,STANDBY,none,false,Pause → standby
+"idle the monitor",PCNL,M01,STANDBY,none,false,Idle → standby
+"stand by the lithotripter",PCNL,M07,STANDBY,none,false,Stand by
+"don't put the ventilator on standby",PCNL,M03,ON,none,true,Negated standby → ON
+"start the ventilator immediately",PCNL,M03,ON,immediately,false,Temporal: immediately
+"turn on the suction right now",PCNL,M06,ON,immediately,false,Temporal: right now
+"ventilator stat",PCNL,M03,ON,immediately,false,Temporal: stat (medical urgency)
+"start irrigation after the incision",PCNL,M05,ON,after,false,Temporal: after event
+"start the vent when ready",PCNL,M03,ON,when,false,Temporal: when condition
+"start lithotripsy in 5 minutes",PCNL,M07,ON,in_time,false,Temporal: delayed
+"start suction before the closure",PCNL,M06,ON,before,false,Temporal: before event
+"keep suction on during the resection",PCNL,M06,ON,during,false,Temporal: during event
+"start suction and irrigation",PCNL,M05+M06,ON,none,false,Multi-machine command
+"turn on camera and lights",PCNL,M08+M09,ON,none,false,Multi-machine command
+"turn off suction and irrigation",PCNL,M05+M06,OFF,none,false,Multi-machine off
+"start baseline monitoring",PCNL,M01,ON,none,false,Config trigger phrase
+"begin induction",PCNL,M02,ON,none,false,Anesthesia trigger
+"intubation complete",PCNL,M03,ON,none,false,Ventilator trigger
+"need fluoroscopy",PCNL,M04,ON,none,false,Fluoro trigger
+"start saline flow",PCNL,M05,ON,none,false,Irrigation trigger
+"clear field",PCNL,M06,ON,none,false,Suction trigger
+"fragment stone",PCNL,M07,ON,none,false,Lithotripter trigger
+"start the ventilator",Partial Hepatectomy,M03,ON,none,false,Hepatectomy ventilator
+"activate the cautery",Partial Hepatectomy,M07,ON,none,false,ESU via cautery alias
+"start the argon beam",Partial Hepatectomy,M04,ON,none,false,Hepatectomy-specific device
+"turn on the ultrasound",Partial Hepatectomy,M05,ON,none,false,Hepatectomy intraop probe
+"start the ventilator",Lobectomy,M03,ON,none,false,Lobectomy ventilator
+"turn on the VATS camera",Lobectomy,M06,ON,none,false,VATS camera system
+"start the insufflator",Lobectomy,M07,ON,none,false,Lobectomy CO2 insufflator
+"insert the chest drain",Lobectomy,M08,ON,none,false,Chest drain system
+"we need to be careful with the kidney approach",PCNL,,NONE,none,false,No machine match expected
+"",PCNL,,NONE,none,false,Empty input
+"asdfghjk qwerty zxcvbnm",PCNL,,NONE,none,false,Gibberish input
+"fire up the ventilator",PCNL,M03,ON,none,false,Informal activation
+"kill the suction",PCNL,M06,OFF,none,false,Kill → deactivate
+"go ahead with the irrigation",PCNL,M05,ON,none,false,Go ahead → activate

@@ -1,0 +1,105 @@
+{
+  "surgery": "Partial Hepatectomy",
+  "full_name": "Partial Hepatectomy (Liver Resection)",
+  "environment": "Hepatobiliary OR",
+  "phases": [
+    {"id": "Phase1", "name": "Patient Preparation", "description": "Positioning, draping, time-out"},
+    {"id": "Phase2", "name": "Anesthesia Induction", "description": "General anesthesia, arterial line, central line"},
+    {"id": "Phase3", "name": "Mobilization & Exposure", "description": "Abdominal entry, liver mobilization"},
+    {"id": "Phase4", "name": "Parenchymal Transection", "description": "Liver resection, hemostasis"},
+    {"id": "Phase5", "name": "Hemostasis & Closure", "description": "Drain placement, wound closure"},
+    {"id": "Phase6", "name": "Emergence & Transfer", "description": "Extubation, recovery"}
+  ],
+  "machines": {
+    "M01": {
+      "name": "Patient Monitor",
+      "category": "Monitoring",
+      "description": "Full vitals including arterial line and CVP",
+      "default_state": "ON",
+      "phase_usage": ["Phase1", "Phase2", "Phase3", "Phase4", "Phase5", "Phase6"],
+      "triggers": ["baseline monitoring", "connect monitor", "vitals on"],
+      "aliases": ["monitor", "patient monitor", "vitals monitor", "vital signs", "vitals"],
+      "ui": {"icon": "monitor", "zone": "head_side"}
+    },
+    "M02": {
+      "name": "Anesthesia Machine",
+      "category": "Life Support",
+      "description": "Gas delivery with sevoflurane/desflurane",
+      "default_state": "OFF",
+      "phase_usage": ["Phase2", "Phase3", "Phase4", "Phase5"],
+      "triggers": ["start anesthesia", "begin anesthesia", "induction", "anesthesia ready"],
+      "aliases": ["anesthesia", "anesthesia machine", "gas machine", "anesthetic"],
+      "ui": {"icon": "anesthesia", "zone": "anesthesia_corner"}
+    },
+    "M03": {
+      "name": "Ventilator",
+      "category": "Life Support",
+      "description": "Mechanical ventilation with low CVP strategy",
+      "default_state": "OFF",
+      "phase_usage": ["Phase2", "Phase3", "Phase4", "Phase5"],
+      "triggers": ["intubation complete", "start ventilator", "begin ventilation", "tube is in"],
+      "aliases": ["ventilator", "vent", "breathing machine", "mechanical ventilation", "ventilation"],
+      "ui": {"icon": "ventilator", "zone": "anesthesia_corner"}
+    },
+    "M04": {
+      "name": "Electrosurgical Unit (ESU)",
+      "category": "Energy Device",
+      "description": "Monopolar and bipolar for tissue cutting and coagulation",
+      "default_state": "OFF",
+      "phase_usage": ["Phase3", "Phase4"],
+      "triggers": ["activate cautery", "esu on", "cautery on", "bovie on", "start cautery"],
+      "aliases": ["cautery", "esu", "electrosurgical unit", "bovie", "diathermy", "electrocautery"],
+      "ui": {"icon": "esu", "zone": "table_side"}
+    },
+    "M05": {
+      "name": "Argon Beam Coagulator",
+      "category": "Hemostasis",
+      "description": "Non-contact coagulation for liver surface bleeding",
+      "default_state": "OFF",
+      "phase_usage": ["Phase4"],
+      "triggers": ["argon on", "start argon", "argon beam", "beam coagulator on"],
+      "aliases": ["argon", "argon beam", "argon coagulator", "beam coagulator", "abc"],
+      "ui": {"icon": "argon", "zone": "table_side"}
+    },
+    "M06": {
+      "name": "Surgical Suction",
+      "category": "Fluid Control",
+      "description": "Removes blood from operative field",
+      "default_state": "OFF",
+      "phase_usage": ["Phase3", "Phase4"],
+      "triggers": ["suction on", "start suction", "suction please", "need suction", "clear field"],
+      "aliases": ["suction", "surgical suction", "aspirator", "vacuum", "suctioning"],
+      "ui": {"icon": "suction", "zone": "table_side"}
+    },
+    "M07": {
+      "name": "Infusion Pump",
+      "category": "Drug Delivery",
+      "description": "Controlled IV medications and blood products",
+      "default_state": "ON",
+      "phase_usage": ["Phase2", "Phase3", "Phase4", "Phase5"],
+      "triggers": ["start infusion", "run infusion", "begin drip", "infusion on"],
+      "aliases": ["infusion pump", "infusion", "iv pump", "drip", "pump"],
+      "ui": {"icon": "pump", "zone": "iv_pole"}
+    },
+    "M08": {
+      "name": "Ultrasound Probe",
+      "category": "Imaging",
+      "description": "Intraoperative ultrasound for tumor localization and margin assessment",
+      "default_state": "OFF",
+      "phase_usage": ["Phase3"],
+      "triggers": ["ultrasound on", "start ultrasound", "bring ultrasound", "need ultrasound"],
+      "aliases": ["ultrasound", "ultrasound probe", "us probe", "sono", "sonography", "ious"],
+      "ui": {"icon": "ultrasound", "zone": "side_left"}
+    },
+    "M09": {
+      "name": "OR Lights",
+      "category": "Lighting",
+      "description": "Overhead surgical illumination",
+      "default_state": "ON",
+      "phase_usage": ["Phase1", "Phase2", "Phase3", "Phase4", "Phase5"],
+      "triggers": ["lights on", "lights adjust", "lights up", "brighten", "dim lights"],
+      "aliases": ["lights", "or lights", "surgical lights", "overhead lights", "lamp"],
+      "ui": {"icon": "light", "zone": "ceiling"}
+    }
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "surgery": "Lobectomy",
+  "full_name": "Lobectomy (VATS or Open Lung Resection)",
+  "environment": "Thoracic OR",
+  "phases": [
+    {"id": "Phase1", "name": "Patient Preparation", "description": "Lateral positioning, double-lumen tube prep"},
+    {"id": "Phase2", "name": "Anesthesia Induction", "description": "General anesthesia, double-lumen intubation"},
+    {"id": "Phase3", "name": "Port Placement & Exploration", "description": "Thoracoscopy, adhesiolysis"},
+    {"id": "Phase4", "name": "Hilar Dissection & Lobectomy", "description": "Vessel/bronchus division, lobe removal"},
+    {"id": "Phase5", "name": "Hemostasis & Closure", "description": "Chest tube, wound closure"},
+    {"id": "Phase6", "name": "Emergence & Transfer", "description": "Resume bilateral ventilation, extubation"}
+  ],
+  "machines": {
+    "M01": {
+      "name": "Patient Monitor",
+      "category": "Monitoring",
+      "description": "Vitals including ETCO2 and pulse oximetry",
+      "default_state": "ON",
+      "phase_usage": ["Phase1", "Phase2", "Phase3", "Phase4", "Phase5", "Phase6"],
+      "triggers": ["baseline monitoring", "connect monitor", "vitals on"],
+      "aliases": ["monitor", "patient monitor", "vitals monitor", "vital signs", "vitals"],
+      "ui": {"icon": "monitor", "zone": "head_side"}
+    },
+    "M02": {
+      "name": "Anesthesia Machine",
+      "category": "Life Support",
+      "description": "Gas delivery with one-lung ventilation capability",
+      "default_state": "OFF",
+      "phase_usage": ["Phase2", "Phase3", "Phase4", "Phase5"],
+      "triggers": ["start anesthesia", "begin anesthesia", "induction", "anesthesia ready"],
+      "aliases": ["anesthesia", "anesthesia machine", "gas machine", "anesthetic"],
+      "ui": {"icon": "anesthesia", "zone": "anesthesia_corner"}
+    },
+    "M03": {
+      "name": "Ventilator",
+      "category": "Life Support",
+      "description": "One-lung ventilation via double-lumen tube",
+      "default_state": "OFF",
+      "phase_usage": ["Phase2", "Phase3", "Phase4", "Phase5"],
+      "triggers": ["start ventilator", "begin ventilation", "one lung ventilation", "isolate lung"],
+      "aliases": ["ventilator", "vent", "breathing machine", "mechanical ventilation", "ventilation", "olv"],
+      "ui": {"icon": "ventilator", "zone": "anesthesia_corner"}
+    },
+    "M04": {
+      "name": "Thoracoscopy Camera (VATS)",
+      "category": "Visualization",
+      "description": "Video-assisted thoracoscopic camera system",
+      "default_state": "OFF",
+      "phase_usage": ["Phase3", "Phase4"],
+      "triggers": ["camera on", "scope view", "start camera", "show scope", "vats camera"],
+      "aliases": ["camera", "thoracoscope", "vats camera", "scope", "endoscope", "display"],
+      "ui": {"icon": "camera", "zone": "display_wall"}
+    },
+    "M05": {
+      "name": "Insufflator",
+      "category": "Gas Control",
+      "description": "Maintains thoracic cavity pressure for VATS",
+      "default_state": "OFF",
+      "phase_usage": ["Phase3"],
+      "triggers": ["insufflation start", "start insufflation", "co2 on", "inflate chest"],
+      "aliases": ["insufflator", "insufflation", "co2 insufflator", "gas insufflator"],
+      "ui": {"icon": "gas", "zone": "table_side"}
+    },
+    "M06": {
+      "name": "Electrosurgical Unit (ESU)",
+      "category": "Energy Device",
+      "description": "Tissue dissection and coagulation",
+      "default_state": "OFF",
+      "phase_usage": ["Phase3", "Phase4"],
+      "triggers": ["esu on", "cautery on", "bovie on", "activate cautery", "start cautery"],
+      "aliases": ["cautery", "esu", "electrosurgical unit", "bovie", "diathermy", "electrocautery"],
+      "ui": {"icon": "esu", "zone": "table_side"}
+    },
+    "M07": {
+      "name": "Surgical Suction",
+      "category": "Fluid Control",
+      "description": "Removes blood and air from thoracic cavity",
+      "default_state": "OFF",
+      "phase_usage": ["Phase3", "Phase4"],
+      "triggers": ["suction on", "start suction", "suction please", "need suction", "clear field"],
+      "aliases": ["suction", "surgical suction", "aspirator", "vacuum", "suctioning"],
+      "ui": {"icon": "suction", "zone": "table_side"}
+    },
+    "M08": {
+      "name": "Chest Drain System",
+      "category": "Postoperative",
+      "description": "Maintains negative pressure drainage post-lobectomy",
+      "default_state": "OFF",
+      "phase_usage": ["Phase5", "Phase6"],
+      "triggers": ["insert drain", "drain connect", "chest tube in", "connect drainage"],
+      "aliases": ["chest drain", "chest tube", "drainage system", "pleurovac", "drain"],
+      "ui": {"icon": "drain", "zone": "bed_side"}
+    },
+    "M09": {
+      "name": "OR Lights",
+      "category": "Lighting",
+      "description": "Overhead surgical illumination",
+      "default_state": "ON",
+      "phase_usage": ["Phase1", "Phase2", "Phase3", "Phase4", "Phase5"],
+      "triggers": ["lights on", "lights adjust", "lights up", "brighten", "dim lights"],
+      "aliases": ["lights", "or lights", "surgical lights", "overhead lights", "lamp"],
+      "ui": {"icon": "light", "zone": "ceiling"}
+    }
+  }
+}
