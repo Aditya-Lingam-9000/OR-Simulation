@@ -32,14 +32,19 @@ pip_install(
     "fastapi==0.115.0",
     "uvicorn[standard]==0.30.0",
     "pydantic>=2.0",
-    "numpy>=1.24",
+    "numpy<2",                  # onnxruntime-gpu needs numpy 1.x
     "onnxruntime-gpu==1.18.0",  # GPU ONNX for ASR
-    "llama-cpp-python==0.3.2",  # MedGemma GGUF inference
     "pyngrok==7.1.6",           # ngrok tunnel
     "torchaudio>=2.0",          # feature extraction
+    "huggingface_hub",          # model downloads
 )
-
 print("✅ Core dependencies installed")
+
+# llama-cpp-python must be built from source with CUDA for GPU offloading
+import os as _os
+_os.environ["CMAKE_ARGS"] = "-DGGML_CUDA=on"
+pip_install("llama-cpp-python==0.3.2")
+print("✅ llama-cpp-python installed with CUDA support")
 
 # %% [markdown]
 # ## Cell 2: Clone Repository & Setup
@@ -49,7 +54,7 @@ import os
 from pathlib import Path
 
 # Clone or pull the repo
-REPO_URL = "https://github.com/YOUR_USERNAME/OR-Simulation.git"  # ← CHANGE THIS
+REPO_URL = "https://github.com/Aditya-Lingam-9000/OR-Simulation.git"
 REPO_DIR = Path("/kaggle/working/OR-Simulation")
 
 if not REPO_DIR.exists():
@@ -77,8 +82,6 @@ GGUF_DIR = REPO_DIR / "onnx_models" / "medgemma"
 ONNX_DIR.mkdir(parents=True, exist_ok=True)
 GGUF_DIR.mkdir(parents=True, exist_ok=True)
 
-# --- Install huggingface_hub for model downloads ---
-pip_install("huggingface_hub")
 from huggingface_hub import hf_hub_download
 
 # --- ASR Model (MedASR ONNX int8) ---
