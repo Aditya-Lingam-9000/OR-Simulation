@@ -2,7 +2,7 @@
 
 > **Project**: OR-Symphony: Predictive Surgical State Engine  
 > **Created**: 2026-02-22  
-> **Status**: NOT STARTED  
+> **Status**: Phase 1 COMPLETE — awaiting sign-off  
 > **Rule**: Frontend (Phase 10) is BLOCKED until ALL prior phases have PASS reports with manual sign-off.  
 > **Rule**: Only delete temp/test artifacts after the phase report is PASS and you manually confirm.
 
@@ -10,13 +10,13 @@
 
 ## Pre-Start One-Time Checklist
 
-- [ ] Install Python 3.10+ and `git`
-- [ ] Install VS Code with Git and Python extensions
-- [ ] Sign into GitHub Copilot Pro
+- [x] Install Python 3.10+ and `git`
+- [x] Install VS Code with Git and Python extensions
+- [x] Sign into GitHub Copilot Pro
 - [ ] Create GitHub repo (private)
 - [ ] Create Kaggle account (for GPU runs)
 - [ ] Optional: Lightning AI account for short GPU sessions
-- [ ] Create top-level project folder
+- [x] Create top-level project folder
 
 ---
 
@@ -24,28 +24,28 @@
 
 **Goal**: Clean, versioned repo with venv and CI skeleton.
 
-- [ ] Create repository locally with initial commit
-  - [ ] Create `README.md`
-  - [ ] Create `LICENSE`
-  - [ ] Create `.gitignore`
-  - [ ] Initial git commit
+- [x] Create repository locally with initial commit
+  - [x] Create `README.md`
+  - [x] Create `LICENSE`
+  - [x] Create `.gitignore`
+  - [x] Initial git commit
 - [ ] Create remote repo on GitHub and connect
   - [ ] Add remote origin
   - [ ] Push to main
-- [ ] Create venv + baseline requirements
-  - [ ] Create virtual environment
-  - [ ] Install and upgrade pip
-  - [ ] Create `requirements.txt` with all dependencies
-  - [ ] Install requirements successfully
-- [ ] Add CI skeleton (`.github/workflows/ci.yml`)
-  - [ ] Lint job configured
-  - [ ] Unit test job configured
-- [ ] Sanity checks
-  - [ ] `python -c "import onnxruntime, torch, transformers, fastapi; print('ok')"` passes
+- [x] Create venv + baseline requirements
+  - [x] Create virtual environment
+  - [x] Install and upgrade pip
+  - [x] Create `requirements.txt` with all dependencies
+  - [x] Install requirements successfully
+- [x] Add CI skeleton (`.github/workflows/ci.yml`)
+  - [x] Lint job configured
+  - [x] Unit test job configured
+- [x] Sanity checks
+  - [x] `python -c "import onnxruntime, torch, transformers, fastapi; print('ok')"` passes
   - [ ] CI file appears on GitHub and runs
-- [ ] Commit and push all Phase 0 artifacts
-- [ ] Generate `reports/phase0_report.md`
-- [ ] **PHASE 0 PASS: ______ (initials/date/time)**
+- [x] Commit and push all Phase 0 artifacts
+- [x] Generate `reports/phase0_report.md`
+- [x] **PHASE 0 PASS: user signed off 2026-02-22**
 
 ---
 
@@ -53,42 +53,42 @@
 
 **Goal**: Directory layout, module interfaces, API endpoint stubs, config and schema artifacts.
 
-- [ ] Create project directory structure
-  - [ ] `src/ingest/` — mic/web input, VAD bridge
-  - [ ] `src/asr/` — MedASR wrappers + streaming adapters
-  - [ ] `src/state/` — rolling buffer, rule-engine, schema
-  - [ ] `src/llm/` — MedGemma runner, queue/dispatcher
-  - [ ] `src/api/` — FastAPI/WS endpoints
-  - [ ] `src/workers/` — orchestrator services
-  - [ ] `src/utils/` — device helpers, logging, config
-  - [ ] `tests/`
-  - [ ] `scripts/`
-  - [ ] `onnx_models/` (git-lfs or excluded)
-  - [ ] `models/` (excluded)
-  - [ ] `reports/`
-  - [ ] `configs/`
-  - [ ] `schemas/`
-  - [ ] `logs/`
-- [ ] Create key interface modules (with TODOs)
-  - [ ] `src/ingest/mic_server.py` — browser mic via WebRTC or local mic wrapper
-  - [ ] `src/asr/runner.py` — streaming ASR runner (abstract + ONNX impl)
-  - [ ] `src/state/rules.py` — machines dictionary loader + rule engine
-  - [ ] `src/llm/manager.py` — request queue + batcher skeleton
-  - [ ] `src/api/app.py` — FastAPI + WS skeleton with `/health` endpoint
-  - [ ] `src/utils/device.py` — device helper (CPU/GPU detection)
-  - [ ] `src/utils/logging_config.py` — logging setup
-  - [ ] `src/utils/config.py` — configuration management
-- [ ] Create placeholder worker modules
-  - [ ] `src/workers/asr_worker.py`
-  - [ ] `src/workers/rule_worker.py`
-  - [ ] `src/workers/llm_dispatcher.py`
-  - [ ] `src/workers/state_writer.py`
-- [ ] Sanity checks
-  - [ ] `pytest` runs and passes (empty/stub tests)
-  - [ ] `uvicorn src.api.app:app --reload` starts successfully
-  - [ ] `curl http://127.0.0.1:8000/health` returns `{"status":"ok"}`
-- [ ] Create feature branch, commit, PR, merge
-- [ ] Generate `reports/phase1_report.md`
+- [x] Create project directory structure
+  - [x] `src/ingest/` — mic/web input, VAD bridge
+  - [x] `src/asr/` — MedASR wrappers + streaming adapters
+  - [x] `src/state/` — rolling buffer, rule-engine, schema
+  - [x] `src/llm/` — MedGemma runner, queue/dispatcher
+  - [x] `src/api/` — FastAPI/WS endpoints
+  - [x] `src/workers/` — orchestrator services
+  - [x] `src/utils/` — device helpers, logging, config
+  - [x] `tests/`
+  - [x] `scripts/`
+  - [x] `onnx_models/` (git-lfs or excluded)
+  - [x] `models/` (excluded)
+  - [x] `reports/`
+  - [x] `configs/`
+  - [x] `schemas/`
+  - [x] `logs/`
+- [x] Create key interface modules (with TODOs)
+  - [x] `src/ingest/mic_server.py` — browser mic via WebRTC or local mic wrapper
+  - [x] `src/asr/runner.py` — streaming ASR runner (abstract + ONNX impl)
+  - [x] `src/state/rules.py` — machines dictionary loader + rule engine
+  - [x] `src/llm/manager.py` — request queue + batcher skeleton
+  - [x] `src/api/app.py` — FastAPI + WS skeleton with `/health` endpoint
+  - [x] `src/utils/device.py` — device helper (CPU/GPU detection)
+  - [x] `src/utils/logging_config.py` — logging setup
+  - [x] `src/utils/config.py` — configuration management
+- [x] Create placeholder worker modules
+  - [x] `src/workers/asr_worker.py`
+  - [x] `src/workers/rule_worker.py`
+  - [x] `src/workers/llm_dispatcher.py`
+  - [x] `src/workers/state_writer.py`
+- [x] Sanity checks
+  - [x] `pytest` runs and passes — 55/55 tests
+  - [x] `uvicorn src.api.app:app` starts successfully
+  - [x] `/health` returns `{"status":"ok"}` (HTTP 200)
+- [x] Create feature branch, commit, PR, merge
+- [x] Generate `reports/phase1_report.md`
 - [ ] **PHASE 1 PASS: ______ (initials/date/time)**
 
 ---

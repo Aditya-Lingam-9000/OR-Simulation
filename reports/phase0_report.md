@@ -145,6 +145,6 @@ None — Phase 0 has no temporary artifacts to clean.
 
 ## Sign-off
 
-**PHASE 0 PASS: ______ (initials/date/time)**
+**PHASE 0 PASS: 22-02-2026/11.35PM (initials/date/time)**
 
 > ⚠️ Manual confirmation required above before proceeding to Phase 1.
