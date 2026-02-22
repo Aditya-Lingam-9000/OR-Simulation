@@ -32,19 +32,29 @@ pip_install(
     "fastapi==0.115.0",
     "uvicorn[standard]==0.30.0",
     "pydantic>=2.0",
-    "numpy<2",                  # onnxruntime-gpu needs numpy 1.x
-    "onnxruntime-gpu==1.18.0",  # GPU ONNX for ASR
+    "numpy<2",                  # onnxruntime needs numpy 1.x
     "pyngrok==7.1.6",           # ngrok tunnel
     "torchaudio>=2.0",          # feature extraction
     "huggingface_hub",          # model downloads
 )
-print("✅ Core dependencies installed")
 
-# llama-cpp-python must be built from source with CUDA for GPU offloading
-import os as _os
-_os.environ["CMAKE_ARGS"] = "-DGGML_CUDA=on"
-pip_install("llama-cpp-python==0.3.2")
-print("✅ llama-cpp-python installed with CUDA support")
+# onnxruntime-gpu for CUDA 12 (Kaggle environment)
+subprocess.check_call([
+    sys.executable, "-m", "pip", "install", "-q",
+    "onnxruntime-gpu",
+    "--extra-index-url",
+    "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/",
+])
+print("✅ Core dependencies installed (onnxruntime CUDA 12)")
+
+# llama-cpp-python — prebuilt CUDA 12.4 wheel (no compile needed)
+subprocess.check_call([
+    sys.executable, "-m", "pip", "install", "-q",
+    "llama-cpp-python",
+    "--extra-index-url",
+    "https://abetlen.github.io/llama-cpp-python/whl/cu124",
+])
+print("✅ llama-cpp-python installed with CUDA 12.4 support")
 
 # %% [markdown]
 # ## Cell 2: Clone Repository & Setup
