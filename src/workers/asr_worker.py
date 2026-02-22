@@ -135,7 +135,7 @@ class ASRWorker:
             chunk: Either a numpy array or an object with .audio attribute.
 
         Returns:
-            ASRResult or None if chunk is invalid.
+            ASRResult or None if chunk is invalid / silent.
         """
         try:
             # Extract audio array from chunk
@@ -149,6 +149,11 @@ class ASRWorker:
 
             if audio.dtype != np.float32:
                 audio = audio.astype(np.float32)
+
+            # Skip near-silent chunks (RMS < -60 dB ≈ 0.001)
+            rms = float(np.sqrt(np.mean(audio ** 2))) if len(audio) > 0 else 0.0
+            if rms < 0.001:
+                return None
 
             audio_duration_s = len(audio) / AUDIO_SAMPLE_RATE
             self._total_audio_s += audio_duration_s
@@ -167,8 +172,10 @@ class ASRWorker:
             return result
 
         except Exception:
-            logger.exception("Transcription failed")
             self._error_count += 1
+            # Log once every 10 errors to avoid log spam on Kaggle
+            if self._error_count <= 3 or self._error_count % 10 == 0:
+                logger.exception("Transcription failed (error #%d)", self._error_count)
             return None
 
     async def stop(self) -> None:

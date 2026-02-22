@@ -2,12 +2,19 @@
 OR-Symphony: Sherpa-ONNX ASR Runner
 
 ASR implementation using sherpa-onnx for MedASR CTC model.
-sherpa-onnx bundles its own ONNX runtime (with GPU support) so
-onnxruntime-gpu does NOT need to be installed separately.
+sherpa-onnx bundles its own ONNX runtime (with optional GPU support)
+so onnxruntime-gpu does NOT need to be installed separately.
 
-The MedASR CTC model from
+The MedASR CTC int8 model from
   csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25
-is natively supported by sherpa-onnx's OfflineRecognizer.
+requires:
+  - Exactly 128 feature-frames per inference call (fixed ONNX axis).
+  - Batch-mode decoding (``decode_streams``) so the mask tensor gets
+    the correct 2-D shape ``[batch, time]``.
+
+At 16 kHz with a 10 ms hop (160 samples/frame) each segment is
+128 × 160 = 20 480 samples ≈ 1.28 s.  Longer audio is split into
+non-overlapping windows; shorter audio is zero-padded.
 
 Usage:
     runner = SherpaASRRunner()
@@ -21,7 +28,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -35,13 +42,23 @@ from src.utils.constants import (
 
 logger = logging.getLogger(__name__)
 
+# ── Model geometry ────────────────────────────────────────────────────────
+_FRAME_HOP = 160           # 10 ms @ 16 kHz
+_MODEL_FRAMES = 128        # fixed ONNX time-axis
+_SEGMENT_SAMPLES = _MODEL_FRAMES * _FRAME_HOP  # 20 480 samples ≈ 1.28 s
+_MIN_VOICE_SAMPLES = 1600  # 0.1 s — ignore clicks / glitches
+
 
 class SherpaASRRunner(BaseASRRunner):
     """
     Sherpa-ONNX based ASR runner for MedASR CTC model.
 
-    Uses sherpa_onnx.OfflineRecognizer which handles feature
-    extraction, ONNX inference, and CTC decoding internally.
+    Key implementation details:
+    * Audio is split into fixed 20 480-sample windows before decoding.
+    * ``decode_streams`` (batch API) is used instead of ``decode_stream``
+      so the ONNX ``mask`` input gets the required rank-2 shape.
+    * Every decode call is wrapped in a try/except so a single bad
+      segment never crashes the pipeline.
     """
 
     def __init__(
@@ -62,8 +79,10 @@ class SherpaASRRunner(BaseASRRunner):
         self._total_inference_ms = 0.0
         self._total_audio_s = 0.0
 
+    # ── Model lifecycle ───────────────────────────────────────────────────
+
     def load_model(self) -> None:
-        """Load the model via sherpa_onnx.OfflineRecognizer."""
+        """Load the MedASR CTC model via sherpa_onnx.OfflineRecognizer."""
         import sherpa_onnx
 
         if not self.model_path.exists():
@@ -78,32 +97,36 @@ class SherpaASRRunner(BaseASRRunner):
             tokens=str(self.tokens_path),
             num_threads=4,
             sample_rate=AUDIO_SAMPLE_RATE,
-            feature_dim=128,
+            feature_dim=_MODEL_FRAMES,
             debug=False,
         )
 
         self._loaded = True
         logger.info("Sherpa-ONNX ASR model loaded successfully")
 
-    # MedASR CTC int8 ONNX model has a fixed time-axis of 128 frames.
-    # At 16 kHz with 10 ms hop (160 samples/frame): 128 × 160 = 20 480 samples.
-    _FRAME_HOP = 160
-    _MODEL_FRAMES = 128
-    _SEGMENT_SAMPLES = _MODEL_FRAMES * _FRAME_HOP  # 20 480
+    def is_loaded(self) -> bool:
+        """Check if model is loaded."""
+        return self._loaded
+
+    def unload_model(self) -> None:
+        """Release model resources."""
+        self._recognizer = None
+        self._loaded = False
+        logger.info("Sherpa-ONNX ASR model unloaded")
+
+    # ── Transcription ─────────────────────────────────────────────────────
 
     def transcribe(self, audio: np.ndarray, sample_rate: int = 16000) -> ASRResult:
         """
-        Transcribe an audio chunk.
+        Transcribe an audio buffer.
 
-        The MedASR CTC model accepts exactly 128 time-frames per
-        inference call (= 20 480 samples at 16 kHz).  Longer audio is
-        split into non-overlapping 20 480-sample windows; shorter audio
-        is zero-padded on the right.  Texts from each window are
-        concatenated with a space separator.
+        The audio is split into fixed 20 480-sample windows (128 frames).
+        Each window is decoded via the batch API and the resulting texts
+        are concatenated.
 
         Args:
             audio: Float32 numpy array, mono, 16 kHz.
-            sample_rate: Audio sample rate (must be 16 000).
+            sample_rate: Must be 16 000.
 
         Returns:
             ASRResult with transcript, confidence, and timing.
@@ -114,40 +137,25 @@ class SherpaASRRunner(BaseASRRunner):
         total_start = time.perf_counter()
         audio_duration_s = len(audio) / sample_rate
 
-        # Ensure float32
+        # Ensure float32, contiguous
         if audio.dtype != np.float32:
             audio = audio.astype(np.float32)
+        if not audio.flags["C_CONTIGUOUS"]:
+            audio = np.ascontiguousarray(audio)
 
-        # --- split / pad to fixed-length segments -------------------------
-        seg_len = self._SEGMENT_SAMPLES
-        texts: list[str] = []
+        # Skip trivially short audio (clicks, glitches)
+        if len(audio) < _MIN_VOICE_SAMPLES:
+            return self._empty_result(audio_duration_s)
 
-        if len(audio) == 0:
-            # Nothing to decode
-            pass
-        elif len(audio) <= seg_len:
-            # Pad to exactly seg_len with silence
-            padded = np.zeros(seg_len, dtype=np.float32)
-            padded[: len(audio)] = audio
-            texts.append(self._decode_segment(padded, sample_rate))
-        else:
-            # Process in non-overlapping windows
-            offset = 0
-            while offset < len(audio):
-                window = audio[offset : offset + seg_len]
-                if len(window) < seg_len:
-                    padded = np.zeros(seg_len, dtype=np.float32)
-                    padded[: len(window)] = window
-                    window = padded
-                texts.append(self._decode_segment(window, sample_rate))
-                offset += seg_len
-
+        # Split → decode → join
+        windows = self._split_to_windows(audio)
+        texts = [self._decode_window(w, sample_rate) for w in windows]
         text = " ".join(t for t in texts if t).strip()
-        confidence = 0.85 if text else 0.0
 
+        confidence = 0.85 if text else 0.0
         total_ms = (time.perf_counter() - total_start) * 1000
 
-        segments = []
+        segments: List[TranscriptSegment] = []
         if text:
             segments.append(
                 TranscriptSegment(
@@ -160,7 +168,7 @@ class SherpaASRRunner(BaseASRRunner):
                 )
             )
 
-        # Update latency tracking
+        # Stats
         self._inference_count += 1
         self._total_inference_ms += total_ms
         self._total_audio_s += audio_duration_s
@@ -168,9 +176,7 @@ class SherpaASRRunner(BaseASRRunner):
         if total_ms > self.latency_target_ms:
             logger.warning(
                 "ASR latency %.0fms exceeds target %dms (audio=%.1fs)",
-                total_ms,
-                self.latency_target_ms,
-                audio_duration_s,
+                total_ms, self.latency_target_ms, audio_duration_s,
             )
 
         result = ASRResult(
@@ -179,22 +185,12 @@ class SherpaASRRunner(BaseASRRunner):
             model_name="medasr-sherpa-onnx",
             is_partial=False,
         )
-
         logger.debug(
-            "Sherpa ASR: '%s' (conf=%.2f, total=%.0fms)",
+            "Sherpa ASR: '%s' (conf=%.2f, %.0fms, %d win)",
             text[:80] if text else "(empty)",
-            confidence,
-            total_ms,
+            confidence, total_ms, len(windows),
         )
-
         return result
-
-    def _decode_segment(self, audio: np.ndarray, sample_rate: int) -> str:
-        """Decode exactly ``_SEGMENT_SAMPLES`` samples and return text."""
-        stream = self._recognizer.create_stream()
-        stream.accept_waveform(sample_rate, audio)
-        self._recognizer.decode_stream(stream)
-        return stream.result.text.strip()
 
     def transcribe_streaming(
         self, audio: np.ndarray, sample_rate: int = 16000
@@ -206,15 +202,55 @@ class SherpaASRRunner(BaseASRRunner):
             seg.is_final = False
         return result
 
-    def is_loaded(self) -> bool:
-        """Check if model is loaded."""
-        return self._loaded
+    # ── Internal helpers ──────────────────────────────────────────────────
 
-    def unload_model(self) -> None:
-        """Release model resources."""
-        self._recognizer = None
-        self._loaded = False
-        logger.info("Sherpa-ONNX ASR model unloaded")
+    @staticmethod
+    def _split_to_windows(audio: np.ndarray) -> List[np.ndarray]:
+        """
+        Split *audio* into non-overlapping windows of exactly
+        ``_SEGMENT_SAMPLES`` samples, zero-padding the last one.
+        """
+        if len(audio) == 0:
+            return []
+
+        windows: List[np.ndarray] = []
+        for offset in range(0, len(audio), _SEGMENT_SAMPLES):
+            chunk = audio[offset : offset + _SEGMENT_SAMPLES]
+            if len(chunk) < _SEGMENT_SAMPLES:
+                padded = np.zeros(_SEGMENT_SAMPLES, dtype=np.float32)
+                padded[: len(chunk)] = chunk
+                chunk = padded
+            windows.append(chunk)
+        return windows
+
+    def _decode_window(self, audio: np.ndarray, sample_rate: int) -> str:
+        """
+        Decode exactly ``_SEGMENT_SAMPLES`` samples and return text.
+
+        Uses ``decode_streams`` (batch API) so the ONNX mask input
+        gets rank 2  ``[1, time]``  instead of rank 1  ``[time]``.
+        """
+        try:
+            stream = self._recognizer.create_stream()
+            stream.accept_waveform(sample_rate, audio)
+            # Batch-mode decode — fixes "Invalid rank for input: mask"
+            self._recognizer.decode_streams([stream])
+            return stream.result.text.strip()
+        except Exception as exc:
+            logger.warning("Window decode failed (%s), skipping", exc)
+            return ""
+
+    @staticmethod
+    def _empty_result(audio_duration_s: float) -> ASRResult:
+        """Return an empty ASRResult for trivially short audio."""
+        return ASRResult(
+            segments=[],
+            processing_time_ms=0.0,
+            model_name="medasr-sherpa-onnx",
+            is_partial=False,
+        )
+
+    # ── Metadata ──────────────────────────────────────────────────────────
 
     def get_model_info(self) -> Dict[str, str]:
         """Get model metadata."""
