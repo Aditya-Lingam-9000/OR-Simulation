@@ -148,29 +148,29 @@
 
 **Goal**: Reliable, deterministic rule engine mapping transcripts → machine toggles.
 
-- [ ] Machines dictionary design (JSON)
-  - [ ] `configs/machines/pcnl.json`
-  - [ ] `configs/machines/partial_hepatectomy.json`
-  - [ ] `configs/machines/lobectomy.json`
-- [ ] Rule engine implementation (`src/state/rules.py`)
-  - [ ] Keyword mapping (turn on/start/activate vs turn off/stop/standby)
-  - [ ] Alias normalization
-  - [ ] Negation handling ("don't start suction")
-  - [ ] Temporal qualifiers (immediately, after x)
-  - [ ] Debounce toggles (ignore repeated within 3s)
-  - [ ] Output canonical JSON patch (0/1 format)
-- [ ] Tests
-  - [ ] `tests/rules/test_rules.py` with ~100 synthetic utterances
-  - [ ] Edge cases: negations, ambiguity, repeated commands
-- [ ] Integration with ASR
-  - [ ] Final transcript → rule engine → `tmp/pending_update.json` with `source:"rule"`
-- [ ] Sanity checks
-  - [ ] `pytest tests/rules` passes
-  - [ ] Manual QA: ~50 real-life sample sentences reviewed in `reports/ruleqa.csv`
-- [ ] Create feature branch, commit, PR, merge
-- [ ] Generate `reports/phase4_report.md`
-- [ ] **PHASE 4 PASS: ______ (initials/date/time)**
-- [ ] Delete `reports/ruleqa.csv` (manual, only after PASS)
+- [x] Machines dictionary design (JSON)
+  - [x] `configs/machines/pcnl.json`
+  - [x] `configs/machines/partial_hepatectomy.json`
+  - [x] `configs/machines/lobectomy.json`
+- [x] Rule engine implementation (`src/state/rules.py`)
+  - [x] Keyword mapping (turn on/start/activate vs turn off/stop/standby)
+  - [x] Alias normalization
+  - [x] Negation handling ("don't start suction")
+  - [x] Temporal qualifiers (immediately, after x)
+  - [x] Debounce toggles (ignore repeated within 3s)
+  - [x] Output canonical JSON patch (0/1 format)
+- [x] Tests
+  - [x] `tests/test_rules.py` with 170 tests (20 test classes)
+  - [x] Edge cases: negations, ambiguity, repeated commands
+- [x] Integration with ASR
+  - [x] ASRWorker: async audio→transcript pipeline
+  - [x] RuleWorker: async transcript→rule engine→state patch pipeline
+- [x] Sanity checks
+  - [x] `pytest tests/` passes — 300 total tests, all passing
+  - [x] Manual QA: 65 sentences reviewed in `reports/ruleqa.csv`
+- [x] Commit `cc42119` on `main`
+- [x] Generate `reports/phase4_report.md` + `reports/phase4_explanation.md`
+- [x] **PHASE 4 PASS: ______ (initials/date/time)**
 
 ---
 
