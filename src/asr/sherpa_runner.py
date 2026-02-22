@@ -102,6 +102,21 @@ class SherpaASRRunner(BaseASRRunner):
         total_start = time.perf_counter()
         audio_duration_s = len(audio) / sample_rate
 
+        # MedASR CTC model needs ≥128 feature frames.
+        # At 16kHz with 10ms hop (160 samples/frame) that is ~1.28s / 20480 samples.
+        _MIN_SAMPLES = 20480  # 128 frames × 160 samples/frame
+        if len(audio) < _MIN_SAMPLES:
+            logger.debug(
+                "Audio too short for ASR (%d samples < %d min), skipping",
+                len(audio), _MIN_SAMPLES,
+            )
+            return ASRResult(
+                full_text="",
+                segments=[],
+                processing_time_ms=0.0,
+                audio_duration_s=audio_duration_s,
+            )
+
         # Ensure float32
         if audio.dtype != np.float32:
             audio = audio.astype(np.float32)

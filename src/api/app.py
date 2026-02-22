@@ -433,7 +433,7 @@ async def websocket_state(websocket: WebSocket) -> None:
 
 # Browser audio config
 _BROWSER_SAMPLE_RATE = 16000  # AudioWorklet resamples to 16kHz before sending
-_CHUNK_SAMPLES = 8000         # 0.5s at 16kHz
+_CHUNK_SAMPLES = 24000        # 1.5s at 16kHz — MedASR CTC needs ≥128 feature frames (~1.28s)
 
 
 def _resample_linear(audio: np.ndarray, src_rate: int, dst_rate: int) -> np.ndarray:
@@ -520,8 +520,8 @@ async def websocket_audio(websocket: WebSocket) -> None:
     except Exception as e:
         logger.error("Audio WebSocket error: %s", e)
     finally:
-        # Flush remaining buffer if significant
-        if len(audio_buffer) >= AUDIO_SAMPLE_RATE // 4:  # > 0.25s
+        # Flush remaining buffer if long enough for the ASR model (~1.3s min)
+        if len(audio_buffer) >= _CHUNK_SAMPLES:
             if app_state.orchestrator is not None and app_state.orchestrator.is_running:
                 await app_state.orchestrator.feed_audio(audio_buffer)
         logger.info("Audio WebSocket disconnected (received %d chunks)", chunks_received)
