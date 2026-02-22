@@ -4,8 +4,9 @@
  * Provides surgery state + connection status via React Context.
  * Auto-reconnects on disconnect with exponential backoff.
  *
- * Supports remote backend URL via `backendUrl` prop (e.g., ngrok URL for Kaggle).
- * If not set, uses the current browser host (with Vite proxy in dev mode).
+ * Supports remote backend URL via:
+ *   - `backendUrl` prop (resolved from ?backend= query param or env var)
+ *   - `setBackendUrl()` exposed in context for runtime URL changes
  */
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
 
@@ -22,7 +23,7 @@ const INITIAL_STATE = {
 
 /**
  * Build WebSocket URL for state.
- * @param {string|null} backendUrl 
+ * @param {string|null} backendUrl
  */
 function buildWsUrl(backendUrl) {
   if (backendUrl) {
@@ -36,20 +37,33 @@ function buildWsUrl(backendUrl) {
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 16000;
 
-export function StateProvider({ children, backendUrl = null }) {
+export function StateProvider({ children, backendUrl: initialBackendUrl = null }) {
   const [state, setState] = useState(INITIAL_STATE);
   const [connected, setConnected] = useState(false);
   const [reconnectCount, setReconnectCount] = useState(0);
+  const [backendUrl, setBackendUrlState] = useState(initialBackendUrl);
+
   const wsRef = useRef(null);
   const reconnectTimer = useRef(null);
   const mountedRef = useRef(true);
+  // Always-fresh ref so callbacks never have stale closures
+  const backendUrlRef = useRef(backendUrl);
+  backendUrlRef.current = backendUrl;
+
+  /** Allow runtime URL changes (e.g., from a connection input bar) */
+  const setBackendUrl = useCallback((url) => {
+    const cleaned = url ? url.replace(/\/$/, "") : null;
+    setBackendUrlState(cleaned);
+  }, []);
 
   const connect = useCallback(() => {
     if (!mountedRef.current) return;
+    const url = backendUrlRef.current; // always fresh
 
     const doConnect = () => {
       try {
-        const wsUrl = buildWsUrl(backendUrl);
+        const wsUrl = buildWsUrl(url);
+        console.log("[OR-Symphony] Connecting WebSocket:", wsUrl);
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
@@ -57,50 +71,47 @@ export function StateProvider({ children, backendUrl = null }) {
           if (!mountedRef.current) return;
           setConnected(true);
           setReconnectCount(0);
-          console.log("[OR-Symphony] WebSocket connected");
+          console.log("[OR-Symphony] WebSocket connected:", wsUrl);
         };
 
-      ws.onmessage = (event) => {
-        if (!mountedRef.current) return;
-        try {
-          const data = JSON.parse(event.data);
-          setState(data);
-        } catch (err) {
-          console.error("[OR-Symphony] Invalid JSON:", err);
-        }
-      };
+        ws.onmessage = (event) => {
+          if (!mountedRef.current) return;
+          try {
+            const data = JSON.parse(event.data);
+            setState(data);
+          } catch (err) {
+            console.error("[OR-Symphony] Invalid JSON:", err);
+          }
+        };
 
-      ws.onclose = () => {
-        if (!mountedRef.current) return;
-        setConnected(false);
-        wsRef.current = null;
-        console.log("[OR-Symphony] WebSocket disconnected — scheduling reconnect");
+        ws.onclose = () => {
+          if (!mountedRef.current) return;
+          setConnected(false);
+          wsRef.current = null;
+          scheduleReconnect();
+        };
+
+        ws.onerror = (err) => {
+          console.error("[OR-Symphony] WebSocket error:", err);
+          ws.close();
+        };
+      } catch (err) {
+        console.error("[OR-Symphony] WebSocket creation failed:", err);
         scheduleReconnect();
-      };
-
-      ws.onerror = (err) => {
-        console.error("[OR-Symphony] WebSocket error:", err);
-        ws.close();
-      };
-    } catch (err) {
-      console.error("[OR-Symphony] WebSocket creation failed:", err);
-      scheduleReconnect();
-    }
+      }
     };
 
-    // ngrok free tier shows an interstitial page on first visit.
-    // We must hit an HTTP endpoint with the bypass header first,
-    // then open the WebSocket after the interstitial is cleared.
-    if (backendUrl && backendUrl.includes("ngrok")) {
-      const healthUrl = `${backendUrl.replace(/\/$/, "")}/health`;
+    // ngrok free tier: hit HTTP endpoint with bypass header first
+    if (url && url.includes("ngrok")) {
+      const healthUrl = `${url.replace(/\/$/, "")}/health`;
       console.log("[OR-Symphony] Warming ngrok via", healthUrl);
       fetch(healthUrl, { headers: { "ngrok-skip-browser-warning": "true" } })
         .then(() => doConnect())
-        .catch(() => doConnect()); // try WS anyway even if health fails
+        .catch(() => doConnect());
     } else {
       doConnect();
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);     // deps intentionally empty — uses ref for backendUrl
 
   const scheduleReconnect = useCallback(() => {
     if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
@@ -115,27 +126,40 @@ export function StateProvider({ children, backendUrl = null }) {
     });
   }, [connect]);
 
+  // When backendUrl changes (initial mount OR runtime change), reconnect
+  useEffect(() => {
+    if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setConnected(false);
+    setReconnectCount(0);
+    connect();
+  }, [backendUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cleanup on unmount
   useEffect(() => {
     mountedRef.current = true;
-    connect();
     return () => {
       mountedRef.current = false;
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       if (wsRef.current) {
-        wsRef.current.onclose = null; // prevent reconnect loop
+        wsRef.current.onclose = null;
         wsRef.current.close();
       }
     };
-  }, [connect]);
+  }, []);
 
-  const value = { state, connected, reconnectCount, backendUrl };
+  const value = { state, connected, reconnectCount, backendUrl, setBackendUrl };
 
   return <StateContext.Provider value={value}>{children}</StateContext.Provider>;
 }
 
 /**
  * Hook to consume the surgery state context.
- * @returns {{ state: object, connected: boolean, reconnectCount: number, backendUrl: string|null }}
+ * @returns {{ state, connected, reconnectCount, backendUrl, setBackendUrl }}
  */
 export function useORState() {
   const ctx = useContext(StateContext);

@@ -275,6 +275,7 @@ class LLMManager:
                 request_id=request.request_id,
                 use_chat=True,
                 messages=messages,
+                timeout_s=120.0,  # MedGemma Q3 on T4 can take 60-90s
             )
 
             if not batch_result.success:

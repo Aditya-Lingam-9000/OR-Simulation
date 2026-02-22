@@ -31,10 +31,11 @@ const LAYOUTS = {
 };
 
 function AppContent() {
-  const { state, connected, backendUrl } = useORState();
+  const { state, connected, backendUrl, setBackendUrl } = useORState();
   const apiBase = useApiBase();
   const [machinesData, setMachinesData] = useState({});
   const [overrideMachine, setOverrideMachine] = useState(null);
+  const [urlInput, setUrlInput] = useState("");
 
   const surgery = state.metadata?.surgery || "PCNL";
   const layout = LAYOUTS[surgery] || LAYOUTS.PCNL;
@@ -75,6 +76,40 @@ function AppContent() {
           />
         </div>
       </header>
+
+      {/* ── Connection Bar — shown when not connected and no backend URL ── */}
+      {!connected && (
+        <div className="bg-yellow-900/40 border-b border-yellow-700 px-4 py-2 flex flex-wrap items-center gap-2 text-xs font-mono">
+          <span className="text-yellow-300">
+            {backendUrl
+              ? `⏳ Connecting to ${backendUrl} …`
+              : "⚠ No backend URL — paste your ngrok URL below or add ?backend=URL to the address bar"}
+          </span>
+          {!backendUrl && (
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (urlInput.trim()) setBackendUrl(urlInput.trim());
+              }}
+            >
+              <input
+                type="text"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder="https://xxxx.ngrok-free.app"
+                className="bg-gray-800 text-white border border-gray-600 rounded px-2 py-1 text-xs w-72 font-mono"
+              />
+              <button
+                type="submit"
+                className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-xs font-bold"
+              >
+                Connect
+              </button>
+            </form>
+          )}
+        </div>
+      )}
 
       {/* ── Main content ── */}
       <main className="flex-1 flex flex-col lg:flex-row gap-4 p-4 overflow-auto">
