@@ -436,6 +436,7 @@ async def websocket_state(websocket: WebSocket) -> None:
 # Browser audio config
 _BROWSER_SAMPLE_RATE = 16000  # AudioWorklet resamples to 16kHz before sending
 _CHUNK_SAMPLES = 32000        # 2s at 16kHz — good for voice commands
+_MIN_FLUSH_SAMPLES = 1600     # 100ms minimum — avoid flushing noise pops
 _FLUSH_TIMEOUT_S = 2.0        # Flush partial buffer after this many seconds of silence
 
 
@@ -480,7 +481,8 @@ async def websocket_audio(websocket: WebSocket) -> None:
                 )
             except asyncio.TimeoutError:
                 # No audio for _FLUSH_TIMEOUT_S — flush whatever we have
-                if len(audio_buffer) >= _CHUNK_SAMPLES:
+                # Use a minimum of 1600 samples (~100ms) to avoid noise pops
+                if len(audio_buffer) >= _MIN_FLUSH_SAMPLES:
                     if app_state.orchestrator is not None and app_state.orchestrator.is_running:
                         logger.info(
                             "\u23f1  Flushing %d samples (%.2fs) after silence timeout",
@@ -556,7 +558,7 @@ async def websocket_audio(websocket: WebSocket) -> None:
         logger.error("Audio WebSocket error: %s", e)
     finally:
         # Flush remaining buffer if long enough for ASR
-        if len(audio_buffer) >= _CHUNK_SAMPLES:
+        if len(audio_buffer) >= _MIN_FLUSH_SAMPLES:
             if app_state.orchestrator is not None and app_state.orchestrator.is_running:
                 await app_state.orchestrator.feed_audio(audio_buffer)
                 chunks_sent += 1

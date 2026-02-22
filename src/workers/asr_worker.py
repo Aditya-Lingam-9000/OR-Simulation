@@ -30,32 +30,49 @@ def _create_asr_runner():
     """Create the best available ASR runner.
 
     Priority:
-      1. faster-whisper  — most reliable, handles any audio length, GPU-accelerated
-      2. sherpa-onnx     — bundles ONNX Runtime, but has mask-rank issues with MedASR
-      3. onnxruntime     — raw ONNX runner (fallback)
+      1. faster-whisper — reliable, handles any audio length, GPU-accelerated
+      2. Auto-installs faster-whisper if missing (Kaggle/Colab safe)
+      3. onnxruntime — raw ONNX runner (last-resort fallback)
+
+    Note: sherpa-onnx is NOT used because its NeMo CTC backend
+    produces an invalid rank-1 mask tensor that the MedASR ONNX model
+    rejects (expects rank 2). This is a sherpa-onnx library bug.
     """
-    # 1. faster-whisper (best option for Kaggle T4 GPUs)
+    # 1. Try faster-whisper
     try:
         import faster_whisper  # noqa: F401
         from src.asr.whisper_runner import WhisperASRRunner
-        logger.info("ASR backend: faster-whisper (preferred)")
+        logger.info("✅ ASR backend: faster-whisper")
         return WhisperASRRunner(model_size="base.en")
     except ImportError:
-        logger.info("faster-whisper not available, trying sherpa-onnx")
+        logger.warning("faster-whisper not installed — attempting auto-install...")
 
-    # 2. sherpa-onnx
+    # 2. Auto-install faster-whisper (safe for Kaggle/Colab notebooks)
     try:
-        import sherpa_onnx  # noqa: F401
-        from src.asr.sherpa_runner import SherpaASRRunner
-        logger.info("ASR backend: sherpa-onnx")
-        return SherpaASRRunner()
-    except ImportError:
-        logger.info("sherpa-onnx not available, trying onnxruntime backend")
+        import subprocess, sys
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "-q", "faster-whisper>=1.0.0"],
+            timeout=120,
+        )
+        import faster_whisper  # noqa: F811
+        from src.asr.whisper_runner import WhisperASRRunner
+        logger.info("✅ ASR backend: faster-whisper (auto-installed)")
+        return WhisperASRRunner(model_size="base.en")
+    except Exception as e:
+        logger.error("Auto-install of faster-whisper failed: %s", e)
 
-    # 3. onnxruntime (requires manual ONNX setup)
-    from src.asr.onnx_runner import OnnxASRRunner
-    logger.info("ASR backend: onnxruntime (fallback)")
-    return OnnxASRRunner()
+    # 3. Last resort — raw onnxruntime (may also have issues)
+    try:
+        from src.asr.onnx_runner import OnnxASRRunner
+        logger.warning("⚠️ ASR backend: onnxruntime (fallback — may have issues)")
+        return OnnxASRRunner()
+    except Exception as e:
+        logger.error("onnxruntime fallback failed: %s", e)
+
+    raise RuntimeError(
+        "No ASR backend available. Install faster-whisper: "
+        "pip install faster-whisper>=1.0.0"
+    )
 
 
 class ASRWorker:

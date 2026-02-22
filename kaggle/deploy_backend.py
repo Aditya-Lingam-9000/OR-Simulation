@@ -123,7 +123,7 @@ if LLM_MODEL.exists():
     if sz < 100_000_000:
         print(f"⚠️  File suspiciously small ({sz} bytes) — may be corrupt")
 else:
-    print(f"✅ MedGemma model found: {LLM_MODEL} ({LLM_MODEL.stat().st_size / 1e9:.2f} GB)")
+    print(f"❌ MedGemma model not found at {LLM_MODEL} — download may have failed")
 
 # %% [markdown]
 # ## Cell 4: Configure ngrok Tunnel
