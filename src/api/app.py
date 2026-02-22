@@ -1,8 +1,8 @@
 """
-OR-Symphony: FastAPI Application Skeleton
+OR-Symphony: FastAPI Application
 
 Main API server with REST and WebSocket endpoints.
-Drives the frontend operating-room visualization.
+Integrates the Orchestrator pipeline for real-time surgical state tracking.
 
 Run:
     uvicorn src.api.app:app --reload --port 8000
@@ -95,6 +95,7 @@ class AppState:
         )
         self.machines_data: Dict[str, Any] = {}
         self.connected_clients: List[WebSocket] = []
+        self.orchestrator: Any = None  # Set during lifespan
         self._load_machines_data()
 
     def _load_machines_data(self) -> None:
@@ -120,9 +121,56 @@ class AppState:
         entry = self.machines_data.get(self.current_surgery, {})
         return entry.get("machines", {})
 
+    def update_from_pipeline(self, state_dict: Dict[str, Any]) -> None:
+        """
+        Update the current state from pipeline output.
+
+        Args:
+            state_dict: State dict from the StateWriter.
+        """
+        self.current_state = SurgeryStateResponse(**{
+            "metadata": state_dict.get("metadata", {}),
+            "machines": state_dict.get("machines", {"0": [], "1": []}),
+            "details": state_dict.get("details", {}),
+            "suggestions": state_dict.get("suggestions", []),
+            "confidence": state_dict.get("confidence", 0.0),
+            "source": state_dict.get("source", "rule"),
+        })
+
 
 # Global app state (created before lifespan so endpoints can reference it)
 app_state = AppState()
+
+
+# ---------------------------------------------------------------------------
+# Broadcast helper
+# ---------------------------------------------------------------------------
+
+
+async def _broadcast_state(state_dict: Optional[Dict[str, Any]] = None) -> None:
+    """
+    Broadcast current state to all connected WebSocket clients.
+
+    Args:
+        state_dict: Optional state dict. Uses app_state.current_state if None.
+    """
+    if state_dict is not None:
+        app_state.update_from_pipeline(state_dict)
+
+    state_json = app_state.current_state.model_dump()
+    disconnected: List[WebSocket] = []
+
+    for client in app_state.connected_clients:
+        try:
+            await client.send_json(state_json)
+        except Exception:
+            disconnected.append(client)
+
+    for client in disconnected:
+        try:
+            app_state.connected_clients.remove(client)
+        except ValueError:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -133,12 +181,35 @@ app_state = AppState()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan — startup and shutdown logic."""
+    from src.workers.orchestrator import Orchestrator
+
     # --- startup ---
     logger.info("OR-Symphony API starting — Surgery: %s", app_state.current_surgery)
     logger.info("⚠️  %s", SAFETY_DISCLAIMER)
+
+    # Create and start orchestrator
+    orchestrator = Orchestrator(
+        surgery=app_state.current_surgery,
+        llm_stub=True,  # Stub by default; set to False for real inference
+        on_state_update=_broadcast_state,
+    )
+    app_state.orchestrator = orchestrator
+
+    try:
+        await orchestrator.start()
+    except Exception as e:
+        logger.error("Orchestrator start failed: %s", e)
+
     yield
+
     # --- shutdown ---
     logger.info("OR-Symphony API shutting down")
+    if app_state.orchestrator is not None:
+        try:
+            await app_state.orchestrator.stop()
+        except Exception as e:
+            logger.error("Orchestrator stop error: %s", e)
+
     for client in app_state.connected_clients:
         try:
             await client.close()
@@ -153,7 +224,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="OR-Symphony API",
     description="Predictive Surgical State Engine — Simulation & Research Only",
-    version="0.1.0",
+    version="0.7.0",
     lifespan=lifespan,
 )
 
@@ -185,6 +256,11 @@ async def health_check() -> HealthResponse:
 @app.get("/state", response_model=SurgeryStateResponse)
 async def get_state() -> SurgeryStateResponse:
     """Get the current surgery state as structured JSON."""
+    # Pull latest from orchestrator if available
+    if app_state.orchestrator is not None and app_state.orchestrator.is_running:
+        state_dict = app_state.orchestrator.get_current_state()
+        if state_dict:
+            app_state.update_from_pipeline(state_dict)
     return app_state.current_state
 
 
@@ -198,6 +274,14 @@ async def list_surgeries() -> List[str]:
 async def get_machines() -> Dict[str, Any]:
     """Get machines dictionary for the currently selected surgery."""
     return app_state.get_current_machines()
+
+
+@app.get("/stats")
+async def get_stats() -> Dict[str, Any]:
+    """Get aggregated pipeline statistics from all workers."""
+    if app_state.orchestrator is not None:
+        return app_state.orchestrator.stats
+    return {"running": False, "message": "Orchestrator not initialized"}
 
 
 @app.post("/select_surgery")
@@ -222,12 +306,39 @@ async def select_surgery(request: SurgerySelectRequest) -> Dict[str, str]:
             "reasoning": "normal",
         }
     )
+
+    # Switch orchestrator surgery if running
+    if app_state.orchestrator is not None and app_state.orchestrator.is_running:
+        app_state.orchestrator.switch_surgery(request.surgery)
+
     logger.info("Surgery switched to: %s", request.surgery)
 
     # Notify connected WebSocket clients
     await _broadcast_state()
 
     return {"status": "ok", "surgery": request.surgery}
+
+
+@app.post("/transcript")
+async def feed_transcript(body: Dict[str, Any]) -> Dict[str, str]:
+    """
+    Feed a transcript text directly into the pipeline (bypasses ASR).
+
+    Useful for testing and simulation.
+
+    Body: {"text": "turn on the fluoroscopy", "speaker": "surgeon"}
+    """
+    text = body.get("text", "")
+    speaker = body.get("speaker", "api")
+
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Empty transcript text")
+
+    if app_state.orchestrator is not None and app_state.orchestrator.is_running:
+        await app_state.orchestrator.feed_transcript(text, speaker=speaker)
+        return {"status": "ok", "text": text[:100]}
+    else:
+        raise HTTPException(status_code=503, detail="Pipeline not running")
 
 
 @app.post("/override")
@@ -245,7 +356,7 @@ async def manual_override(request: OverrideRequest) -> Dict[str, str]:
             detail=f"Machine {request.machine_id} not found in {app_state.current_surgery}",
         )
 
-    # Log the override (audit trail)
+    # Log the override
     logger.info(
         "OVERRIDE | machine=%s | action=%s | reason=%s | surgery=%s",
         request.machine_id,
@@ -254,12 +365,19 @@ async def manual_override(request: OverrideRequest) -> Dict[str, str]:
         app_state.current_surgery,
     )
 
-    # TODO: Apply override to current state and broadcast
+    # Apply override via orchestrator
+    if app_state.orchestrator is not None:
+        app_state.orchestrator.apply_override(
+            machine_id=request.machine_id,
+            action=request.action,
+            reason=request.reason,
+        )
+
     return {
         "status": "ok",
         "machine_id": request.machine_id,
         "action": request.action,
-        "note": "Override logged. State update will be broadcast via WebSocket.",
+        "note": "Override applied and logged. State update will be broadcast via WebSocket.",
     }
 
 
@@ -286,28 +404,14 @@ async def websocket_state(websocket: WebSocket) -> None:
         # Keep connection alive, receive messages (e.g., ping/pong)
         while True:
             data = await websocket.receive_text()
-            # Handle client messages if needed (e.g., override requests via WS)
+            # Handle client messages if needed
             logger.debug("WS received: %s", data)
     except WebSocketDisconnect:
-        app_state.connected_clients.remove(websocket)
+        try:
+            app_state.connected_clients.remove(websocket)
+        except ValueError:
+            pass
         logger.info(
             "WebSocket client disconnected. Total clients: %d",
             len(app_state.connected_clients),
         )
-
-
-async def _broadcast_state() -> None:
-    """Broadcast current state to all connected WebSocket clients."""
-    state_json = app_state.current_state.model_dump()
-    disconnected: List[WebSocket] = []
-
-    for client in app_state.connected_clients:
-        try:
-            await client.send_json(state_json)
-        except Exception:
-            disconnected.append(client)
-
-    for client in disconnected:
-        app_state.connected_clients.remove(client)
-
-
