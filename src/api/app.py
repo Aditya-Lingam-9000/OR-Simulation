@@ -13,10 +13,12 @@ Sanity check:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
 import struct
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -433,7 +435,8 @@ async def websocket_state(websocket: WebSocket) -> None:
 
 # Browser audio config
 _BROWSER_SAMPLE_RATE = 16000  # AudioWorklet resamples to 16kHz before sending
-_CHUNK_SAMPLES = 48000        # 3s at 16kHz — captures full voice commands
+_CHUNK_SAMPLES = 20480        # 1.28s at 16kHz = exactly 128 model frames
+_FLUSH_TIMEOUT_S = 2.0        # Flush partial buffer after this many seconds of silence
 
 
 def _resample_linear(audio: np.ndarray, src_rate: int, dst_rate: int) -> np.ndarray:
@@ -465,10 +468,28 @@ async def websocket_audio(websocket: WebSocket) -> None:
     client_sample_rate = _BROWSER_SAMPLE_RATE
     audio_buffer = np.array([], dtype=np.float32)
     chunks_received = 0
+    chunks_sent = 0
+    last_receive_time = time.time()
 
     try:
         while True:
-            message = await websocket.receive()
+            # Use a timeout so we can flush partial buffers on silence
+            try:
+                message = await asyncio.wait_for(
+                    websocket.receive(), timeout=_FLUSH_TIMEOUT_S
+                )
+            except asyncio.TimeoutError:
+                # No audio for _FLUSH_TIMEOUT_S — flush whatever we have
+                if len(audio_buffer) >= _CHUNK_SAMPLES:
+                    if app_state.orchestrator is not None and app_state.orchestrator.is_running:
+                        logger.info(
+                            "\u23f1  Flushing %d samples (%.2fs) after silence timeout",
+                            len(audio_buffer), len(audio_buffer) / AUDIO_SAMPLE_RATE,
+                        )
+                        await app_state.orchestrator.feed_audio(audio_buffer.copy())
+                        chunks_sent += 1
+                    audio_buffer = np.array([], dtype=np.float32)
+                continue
 
             if message.get("type") == "websocket.disconnect":
                 break
@@ -505,8 +526,17 @@ async def websocket_audio(websocket: WebSocket) -> None:
                 # Accumulate into buffer
                 audio_buffer = np.concatenate([audio_buffer, audio])
                 chunks_received += 1
+                last_receive_time = time.time()
 
-                # Flush buffer in 0.5s chunks to the pipeline
+                # Log periodically how audio is accumulating
+                if chunks_received % 20 == 1:
+                    logger.info(
+                        "\U0001f399  Audio buffer: %d samples (%.2fs), received %d WS chunks",
+                        len(audio_buffer), len(audio_buffer) / AUDIO_SAMPLE_RATE,
+                        chunks_received,
+                    )
+
+                # Flush buffer when we have enough for the model
                 while len(audio_buffer) >= _CHUNK_SAMPLES:
                     chunk = audio_buffer[:_CHUNK_SAMPLES]
                     audio_buffer = audio_buffer[_CHUNK_SAMPLES:]
@@ -514,14 +544,23 @@ async def websocket_audio(websocket: WebSocket) -> None:
                     # Feed to orchestrator
                     if app_state.orchestrator is not None and app_state.orchestrator.is_running:
                         await app_state.orchestrator.feed_audio(chunk)
+                        chunks_sent += 1
+                        logger.info(
+                            "\u27a1  Sent chunk #%d to ASR (%d samples, %.2fs)",
+                            chunks_sent, len(chunk), len(chunk) / AUDIO_SAMPLE_RATE,
+                        )
 
     except WebSocketDisconnect:
         pass
     except Exception as e:
         logger.error("Audio WebSocket error: %s", e)
     finally:
-        # Flush remaining buffer if long enough for the ASR model (~1.3s min)
+        # Flush remaining buffer if long enough for ASR
         if len(audio_buffer) >= _CHUNK_SAMPLES:
             if app_state.orchestrator is not None and app_state.orchestrator.is_running:
                 await app_state.orchestrator.feed_audio(audio_buffer)
-        logger.info("Audio WebSocket disconnected (received %d chunks)", chunks_received)
+                chunks_sent += 1
+        logger.info(
+            "Audio WebSocket disconnected (received %d WS chunks, sent %d to ASR)",
+            chunks_received, chunks_sent,
+        )

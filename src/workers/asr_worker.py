@@ -150,13 +150,15 @@ class ASRWorker:
             if audio.dtype != np.float32:
                 audio = audio.astype(np.float32)
 
-            # Skip near-silent chunks (RMS < -60 dB ≈ 0.001)
-            rms = float(np.sqrt(np.mean(audio ** 2))) if len(audio) > 0 else 0.0
-            if rms < 0.001:
-                return None
-
             audio_duration_s = len(audio) / AUDIO_SAMPLE_RATE
             self._total_audio_s += audio_duration_s
+
+            # Log audio stats for debugging
+            rms = float(np.sqrt(np.mean(audio ** 2))) if len(audio) > 0 else 0.0
+            logger.info(
+                "\U0001f50a Audio chunk: %.2fs, %d samples, RMS=%.4f",
+                audio_duration_s, len(audio), rms,
+            )
 
             result = self._runner.transcribe(audio)
             self._total_inference_ms += result.processing_time_ms
