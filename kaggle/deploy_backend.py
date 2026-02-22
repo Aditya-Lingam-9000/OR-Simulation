@@ -41,10 +41,10 @@ pip_install(
 )
 print("✅ Core dependencies installed")
 
-# llama-cpp-python — prebuilt CUDA 12.4 wheel (no compile needed)
+# llama-cpp-python — prebuilt CUDA 12.4 wheel (>= 0.3.8 for Gemma 3 support)
 subprocess.check_call([
     sys.executable, "-m", "pip", "install", "-q",
-    "llama-cpp-python",
+    "llama-cpp-python>=0.3.8",
     "--extra-index-url",
     "https://abetlen.github.io/llama-cpp-python/whl/cu124",
 ])
