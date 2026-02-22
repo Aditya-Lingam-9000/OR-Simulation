@@ -77,34 +77,39 @@ GGUF_DIR = REPO_DIR / "onnx_models" / "medgemma"
 ONNX_DIR.mkdir(parents=True, exist_ok=True)
 GGUF_DIR.mkdir(parents=True, exist_ok=True)
 
-# --- ASR Model ---
+# --- Install huggingface_hub for model downloads ---
+pip_install("huggingface_hub")
+from huggingface_hub import hf_hub_download
+
+# --- ASR Model (MedASR ONNX int8) ---
 ASR_MODEL = ONNX_DIR / "model.int8.onnx"
+ASR_TOKENS = ONNX_DIR / "tokens.txt"
 if not ASR_MODEL.exists():
-    print("⬇️  Downloading ASR model... (this is a placeholder — update the URL)")
-    # OPTION A: If you uploaded as a Kaggle Dataset:
-    # !cp /kaggle/input/or-symphony-models/medasr/model.int8.onnx {ASR_MODEL}
-
-    # OPTION B: Download from your hosting:
-    # !wget -q -O {ASR_MODEL} "https://your-cloud-storage/model.int8.onnx"
-
-    # OPTION C: Use the stub ASR (no real speech recognition):
-    print("⚠️  ASR model not found. The pipeline will work with text input via /transcript endpoint.")
-    print("    To use real mic→ASR, upload the ONNX model to: onnx_models/medasr/model.int8.onnx")
+    print("⬇️  Downloading MedASR ONNX model from HuggingFace...")
+    hf_hub_download(
+        repo_id="csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25",
+        filename="model.int8.onnx",
+        local_dir=str(ONNX_DIR),
+    )
+    hf_hub_download(
+        repo_id="csukuangfj/sherpa-onnx-medasr-ctc-en-int8-2025-12-25",
+        filename="tokens.txt",
+        local_dir=str(ONNX_DIR),
+    )
+    print(f"✅ MedASR model downloaded to {ONNX_DIR}")
 else:
     print(f"✅ ASR model found: {ASR_MODEL} ({ASR_MODEL.stat().st_size / 1e6:.1f} MB)")
 
-# --- MedGemma LLM ---
+# --- MedGemma LLM (GGUF Q3_K_M) ---
 LLM_MODEL = GGUF_DIR / "medgemma-4b-it-Q3_K_M.gguf"
 if not LLM_MODEL.exists():
-    print("⬇️  Downloading MedGemma model... (this is a placeholder — update the URL)")
-    # OPTION A: Kaggle Dataset:
-    # !cp /kaggle/input/or-symphony-models/medgemma/medgemma-4b-it-Q3_K_M.gguf {LLM_MODEL}
-
-    # OPTION B: Download:
-    # !wget -q -O {LLM_MODEL} "https://your-cloud-storage/medgemma-4b-it-Q3_K_M.gguf"
-
-    print("⚠️  MedGemma model not found. Pipeline will run in LLM STUB mode.")
-    print("    To use real LLM, upload the GGUF to: onnx_models/medgemma/medgemma-4b-it-Q3_K_M.gguf")
+    print("⬇️  Downloading MedGemma GGUF from HuggingFace (~1.8 GB)...")
+    hf_hub_download(
+        repo_id="unsloth/medgemma-4b-it-GGUF",
+        filename="medgemma-4b-it-Q3_K_M.gguf",
+        local_dir=str(GGUF_DIR),
+    )
+    print(f"✅ MedGemma downloaded to {GGUF_DIR}")
 else:
     print(f"✅ MedGemma model found: {LLM_MODEL} ({LLM_MODEL.stat().st_size / 1e9:.2f} GB)")
 
