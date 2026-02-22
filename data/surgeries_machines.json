@@ -1,0 +1,263 @@
+[
+  {
+    "surgery": "PCNL",
+    "environment": "Urology OR",
+    "machines": {
+      "M01": {
+        "name": "Patient Monitor",
+        "category": "Monitoring",
+        "description": "Displays ECG, SpO2, BP, respiration",
+        "default_state": "ON",
+        "phase_usage": ["Phase1", "Phase2", "Phase3", "Phase4", "Phase5", "Phase6"],
+        "triggers": ["baseline monitoring", "attach monitor"],
+        "ui": { "icon": "monitor", "zone": "head_side" }
+      },
+      "M02": {
+        "name": "Anesthesia Machine",
+        "category": "Life Support",
+        "description": "Delivers anesthetic gases and oxygen",
+        "default_state": "OFF",
+        "phase_usage": ["Phase2", "Phase3", "Phase4", "Phase5"],
+        "triggers": ["start anesthesia", "induction"],
+        "ui": { "icon": "anesthesia", "zone": "anesthesia_corner" }
+      },
+      "M03": {
+        "name": "Ventilator",
+        "category": "Life Support",
+        "description": "Provides mechanical ventilation",
+        "default_state": "OFF",
+        "phase_usage": ["Phase2", "Phase3", "Phase4", "Phase5"],
+        "triggers": ["intubation complete", "start ventilator"],
+        "ui": { "icon": "ventilator", "zone": "anesthesia_corner" }
+      },
+      "M04": {
+        "name": "C-Arm Fluoroscopy",
+        "category": "Imaging",
+        "description": "Real-time X-ray guidance for kidney access",
+        "default_state": "OFF",
+        "phase_usage": ["Phase3", "Phase4"],
+        "triggers": ["start imaging", "fluoro on"],
+        "ui": { "icon": "carm", "zone": "side_left" }
+      },
+      "M05": {
+        "name": "Irrigation Pump",
+        "category": "Fluid Control",
+        "description": "Maintains continuous saline flow",
+        "default_state": "OFF",
+        "phase_usage": ["Phase3", "Phase4"],
+        "triggers": ["start irrigation"],
+        "ui": { "icon": "pump", "zone": "table_side" }
+      },
+      "M06": {
+        "name": "Suction Apparatus",
+        "category": "Fluid Control",
+        "description": "Removes blood and irrigation fluid",
+        "default_state": "OFF",
+        "phase_usage": ["Phase3", "Phase4"],
+        "triggers": ["suction on", "clear field"],
+        "ui": { "icon": "suction", "zone": "table_side" }
+      },
+      "M07": {
+        "name": "Lithotripter",
+        "category": "Stone Management",
+        "description": "Breaks kidney stones (ultrasonic/pneumatic)",
+        "default_state": "OFF",
+        "phase_usage": ["Phase4"],
+        "triggers": ["start lithotripsy", "fragment stone"],
+        "ui": { "icon": "lithotripter", "zone": "table_side" }
+      },
+      "M08": {
+        "name": "Endoscopic Camera System",
+        "category": "Visualization",
+        "description": "Provides internal kidney view",
+        "default_state": "OFF",
+        "phase_usage": ["Phase3", "Phase4"],
+        "triggers": ["camera on", "scope view"],
+        "ui": { "icon": "camera", "zone": "display_wall" }
+      },
+      "M09": {
+        "name": "OR Lights",
+        "category": "Lighting",
+        "description": "Surgical illumination",
+        "default_state": "ON",
+        "phase_usage": ["Phase1", "Phase2", "Phase3", "Phase4", "Phase5"],
+        "triggers": ["lights on", "increase brightness"],
+        "ui": { "icon": "light", "zone": "ceiling" }
+      }
+    }
+  },
+  {
+    "surgery": "Partial Hepatectomy",
+    "environment": "Hepatobiliary OR",
+    "machines": {
+      "M01": {
+        "name": "Patient Monitor",
+        "category": "Monitoring",
+        "description": "Full vitals",
+        "default_state": "ON",
+        "phase_usage": ["Phase1-6"],
+        "triggers": ["baseline monitoring"],
+        "ui": { "icon": "monitor", "zone": "head_side" }
+      },
+      "M02": {
+        "name": "Anesthesia Machine",
+        "category": "Life Support",
+        "description": "Gas delivery",
+        "default_state": "OFF",
+        "phase_usage": ["Phase2-5"],
+        "triggers": ["start anesthesia"],
+        "ui": { "icon": "anesthesia", "zone": "anesthesia_corner" }
+      },
+      "M03": {
+        "name": "Ventilator",
+        "category": "Life Support",
+        "description": "Mechanical ventilation",
+        "default_state": "OFF",
+        "phase_usage": ["Phase2-5"],
+        "triggers": ["intubation complete"],
+        "ui": { "icon": "ventilator", "zone": "anesthesia_corner" }
+      },
+      "M04": {
+        "name": "Electrosurgical Unit (ESU)",
+        "category": "Energy Device",
+        "description": "Tissue cutting/coagulation",
+        "default_state": "OFF",
+        "phase_usage": ["Phase3", "Phase4"],
+        "triggers": ["activate cautery", "esu on"],
+        "ui": { "icon": "esu", "zone": "table_side" }
+      },
+      "M05": {
+        "name": "Argon Beam Coagulator",
+        "category": "Hemostasis",
+        "description": "Bleeding control",
+        "default_state": "OFF",
+        "phase_usage": ["Phase4"],
+        "triggers": ["argon on"],
+        "ui": { "icon": "argon", "zone": "table_side" }
+      },
+      "M06": {
+        "name": "Surgical Suction",
+        "category": "Fluid Control",
+        "description": "Blood removal",
+        "default_state": "OFF",
+        "phase_usage": ["Phase3", "Phase4"],
+        "triggers": ["suction on"],
+        "ui": { "icon": "suction", "zone": "table_side" }
+      },
+      "M07": {
+        "name": "Infusion Pump",
+        "category": "Drug Delivery",
+        "description": "Controlled IV medications",
+        "default_state": "ON",
+        "phase_usage": ["Phase2", "Phase3", "Phase4", "Phase5"],
+        "triggers": ["start infusion"],
+        "ui": { "icon": "pump", "zone": "iv_pole" }
+      },
+      "M08": {
+        "name": "Ultrasound Probe",
+        "category": "Imaging",
+        "description": "Tumor localization",
+        "default_state": "OFF",
+        "phase_usage": ["Phase3"],
+        "triggers": ["ultrasound on"],
+        "ui": { "icon": "ultrasound", "zone": "side_left" }
+      },
+      "M09": {
+        "name": "OR Lights",
+        "category": "Lighting",
+        "description": "Illumination",
+        "default_state": "ON",
+        "phase_usage": ["Phase1-5"],
+        "triggers": ["lights adjust"],
+        "ui": { "icon": "light", "zone": "ceiling" }
+      }
+    }
+  },
+  {
+    "surgery": "Lobectomy",
+    "environment": "Thoracic OR",
+    "machines": {
+      "M01": {
+        "name": "Patient Monitor",
+        "category": "Monitoring",
+        "description": "Vitals + ETCO2",
+        "default_state": "ON",
+        "phase_usage": ["Phase1-6"],
+        "triggers": ["baseline monitoring"],
+        "ui": { "icon": "monitor", "zone": "head_side" }
+      },
+      "M02": {
+        "name": "Anesthesia Machine",
+        "category": "Life Support",
+        "description": "Gas delivery",
+        "default_state": "OFF",
+        "phase_usage": ["Phase2-5"],
+        "triggers": ["start anesthesia"],
+        "ui": { "icon": "anesthesia", "zone": "anesthesia_corner" }
+      },
+      "M03": {
+        "name": "Ventilator",
+        "category": "Life Support",
+        "description": "One-lung ventilation",
+        "default_state": "OFF",
+        "phase_usage": ["Phase2-5"],
+        "triggers": ["start ventilator"],
+        "ui": { "icon": "ventilator", "zone": "anesthesia_corner" }
+      },
+      "M04": {
+        "name": "Thoracoscopy Camera (VATS)",
+        "category": "Visualization",
+        "description": "Internal chest visualization",
+        "default_state": "OFF",
+        "phase_usage": ["Phase3", "Phase4"],
+        "triggers": ["camera on", "scope view"],
+        "ui": { "icon": "camera", "zone": "display_wall" }
+      },
+      "M05": {
+        "name": "Insufflator",
+        "category": "Gas Control",
+        "description": "Maintains thoracic cavity pressure",
+        "default_state": "OFF",
+        "phase_usage": ["Phase3"],
+        "triggers": ["insufflation start"],
+        "ui": { "icon": "gas", "zone": "table_side" }
+      },
+      "M06": {
+        "name": "Electrosurgical Unit (ESU)",
+        "category": "Energy Device",
+        "description": "Dissection/coagulation",
+        "default_state": "OFF",
+        "phase_usage": ["Phase3", "Phase4"],
+        "triggers": ["esu on"],
+        "ui": { "icon": "esu", "zone": "table_side" }
+      },
+      "M07": {
+        "name": "Surgical Suction",
+        "category": "Fluid Control",
+        "description": "Blood/air removal",
+        "default_state": "OFF",
+        "phase_usage": ["Phase3", "Phase4"],
+        "triggers": ["suction on"],
+        "ui": { "icon": "suction", "zone": "table_side" }
+      },
+      "M08": {
+        "name": "Chest Drain System",
+        "category": "Postoperative",
+        "description": "Maintains negative pressure drainage",
+        "default_state": "OFF",
+        "phase_usage": ["Phase5", "Phase6"],
+        "triggers": ["insert drain", "drain connect"],
+        "ui": { "icon": "drain", "zone": "bed_side" }
+      },
+      "M09": {
+        "name": "OR Lights",
+        "category": "Lighting",
+        "description": "Illumination",
+        "default_state": "ON",
+        "phase_usage": ["Phase1-5"],
+        "triggers": ["lights adjust"],
+        "ui": { "icon": "light", "zone": "ceiling" }
+      }
+    }
+  }
+]
