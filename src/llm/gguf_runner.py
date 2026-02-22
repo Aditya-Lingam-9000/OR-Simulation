@@ -20,9 +20,12 @@ Usage:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
+import os
 import re
+import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -36,6 +39,28 @@ from src.utils.constants import (
 from src.utils.device import get_gguf_gpu_layers
 
 logger = logging.getLogger(__name__)
+
+
+@contextlib.contextmanager
+def _suppress_stderr():
+    """Temporarily redirect stderr to devnull.
+
+    llama.cpp's tokenizer emits thousands of 'control token not marked
+    as EOG' warnings via C-level fprintf(stderr, …) for large-vocab
+    models like MedGemma (262 K tokens).  These bypass Python logging
+    and cannot be silenced with verbose=False.  We redirect the *OS*
+    file-descriptor so even the C layer is muted.
+    """
+    try:
+        stderr_fd = sys.stderr.fileno()
+        saved_fd = os.dup(stderr_fd)
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, stderr_fd)
+        os.close(devnull)
+        yield
+    finally:
+        os.dup2(saved_fd, stderr_fd)
+        os.close(saved_fd)
 
 
 # ---------------------------------------------------------------------------
@@ -146,12 +171,16 @@ class GGUFRunner:
             from llama_cpp import Llama
 
             t0 = time.perf_counter()
-            self._model = Llama(
-                model_path=str(self.model_path),
-                n_ctx=self.n_ctx,
-                n_gpu_layers=self.n_gpu_layers,
-                verbose=False,
+            logger.info(
+                "Loading GGUF model (suppressing tokenizer warnings)..."
             )
+            with _suppress_stderr():
+                self._model = Llama(
+                    model_path=str(self.model_path),
+                    n_ctx=self.n_ctx,
+                    n_gpu_layers=self.n_gpu_layers,
+                    verbose=False,
+                )
             elapsed_ms = (time.perf_counter() - t0) * 1000
             self._loaded = True
             logger.info(
@@ -175,12 +204,13 @@ class GGUFRunner:
                     from llama_cpp import Llama
 
                     t0 = time.perf_counter()
-                    self._model = Llama(
-                        model_path=str(self.model_path),
-                        n_ctx=self.n_ctx,
-                        n_gpu_layers=0,
-                        verbose=False,
-                    )
+                    with _suppress_stderr():
+                        self._model = Llama(
+                            model_path=str(self.model_path),
+                            n_ctx=self.n_ctx,
+                            n_gpu_layers=0,
+                            verbose=False,
+                        )
                     elapsed_ms = (time.perf_counter() - t0) * 1000
                     self._loaded = True
                     self.n_gpu_layers = 0
