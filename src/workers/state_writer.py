@@ -22,7 +22,9 @@ from pathlib import Path
 from typing import Any, Callable, Coroutine, Dict, List, Optional
 
 from src.state.serializer import StateSerializer
+from src.utils.audit import OverrideAuditLogger, StateAuditLogger
 from src.utils.constants import LOGS_DIR, TMP_DIR
+from src.utils.safety import SafetyValidator
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +76,17 @@ class StateWriter:
         self._merge_count = 0
         self._error_count = 0
         self._override_count = 0
+
+        # Audit loggers (SHA-256 checksummed)
+        self._state_audit = StateAuditLogger(
+            log_path=self.output_path.parent / "state_audit.log"
+        )
+        self._override_audit = OverrideAuditLogger(
+            log_path=self._override_log_path.parent / "overrides_audit.log"
+        )
+
+        # Safety validator
+        self._safety = SafetyValidator()
 
         # Ensure output directories exist
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -176,11 +189,29 @@ class StateWriter:
 
             self._current_state = merged
 
+            # Safety validation
+            safety_result = self._safety.validate_output(merged)
+            if not safety_result.is_safe:
+                logger.error(
+                    "Safety validation FAILED — %d violations, skipping broadcast",
+                    len(safety_result.violations),
+                )
+                self._error_count += 1
+                # Still write for debugging, but mark as unsafe
+                merged.setdefault("metadata", {})
+                merged["metadata"]["safety_violations"] = safety_result.violations
+
             # Write atomically
             self.write_state(merged)
 
-            # Fire broadcast callback
-            if self._on_update is not None:
+            # Audit log (checksummed)
+            try:
+                self._state_audit.log_state_change(merged)
+            except Exception as e:
+                logger.error("State audit log failed: %s", e)
+
+            # Fire broadcast callback (only if safe)
+            if self._on_update is not None and safety_result.is_safe:
                 try:
                     await self._on_update(merged)
                 except Exception as e:
@@ -252,8 +283,19 @@ class StateWriter:
         self._overrides.append(override)
         self._override_count += 1
 
-        # Log to audit file
+        # Log to audit file (legacy plain JSON)
         self._log_override(override)
+
+        # Log to checksummed audit (SHA-256 chain)
+        try:
+            self._override_audit.log_override(
+                machine_id=machine_id,
+                action=action,
+                reason=reason,
+                operator=operator,
+            )
+        except Exception as e:
+            logger.error("Override audit log failed: %s", e)
 
         logger.info(
             "Override queued: %s → %s (reason: %s)",
