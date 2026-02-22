@@ -157,17 +157,20 @@ class TestGGUFRunnerJsonParsing:
         result = GGUFRunner._parse_json_output(text)
         assert result["phase"] == "Phase2"
 
-    def test_empty_text_raises(self) -> None:
-        with pytest.raises(ValueError, match="Empty model output"):
-            GGUFRunner._parse_json_output("")
+    def test_empty_text_returns_stub(self) -> None:
+        result = GGUFRunner._parse_json_output("")
+        assert result["source"] == "medgemma"
+        assert result["confidence"] == 0.0
 
-    def test_whitespace_only_raises(self) -> None:
-        with pytest.raises(ValueError, match="Empty model output"):
-            GGUFRunner._parse_json_output("   \n  ")
+    def test_whitespace_only_returns_stub(self) -> None:
+        result = GGUFRunner._parse_json_output("   \n  ")
+        assert result["source"] == "medgemma"
+        assert result["confidence"] == 0.0
 
-    def test_no_valid_json_raises(self) -> None:
-        with pytest.raises(ValueError, match="No valid JSON"):
-            GGUFRunner._parse_json_output("This is just plain text with no JSON.")
+    def test_no_valid_json_returns_stub(self) -> None:
+        result = GGUFRunner._parse_json_output("This is just plain text with no JSON.")
+        assert result["source"] == "medgemma"
+        assert result["confidence"] == 0.0
 
     def test_nested_json(self) -> None:
         """Deeply nested JSON should parse."""
@@ -188,14 +191,16 @@ class TestGGUFRunnerJsonParsing:
         assert result["key"] == "value"
 
     def test_json_array_not_accepted(self) -> None:
-        """Arrays should not be accepted (we need dicts)."""
-        with pytest.raises(ValueError):
-            GGUFRunner._parse_json_output('[1, 2, 3]')
+        """Arrays should not be accepted (we need dicts) — returns stub."""
+        result = GGUFRunner._parse_json_output('[1, 2, 3]')
+        assert result["source"] == "medgemma"
+        assert result["confidence"] == 0.0
 
-    def test_malformed_json_in_braces_raises(self) -> None:
-        """Invalid JSON within braces should raise."""
-        with pytest.raises(ValueError):
-            GGUFRunner._parse_json_output('{key: "no quotes on key"}')
+    def test_malformed_json_in_braces_returns_stub(self) -> None:
+        """Invalid JSON within braces should return stub."""
+        result = GGUFRunner._parse_json_output('{key: "no quotes on key"}')
+        assert result["source"] == "medgemma"
+        assert result["confidence"] == 0.0
 
     def test_complex_multiline(self) -> None:
         """Multi-line JSON with whitespace."""

@@ -177,6 +177,11 @@ import uvicorn
 os.environ["LLM_STUB"] = "0" if LLM_MODEL.exists() else "1"
 os.environ["LLM_REAL"] = "1" if LLM_MODEL.exists() else "0"
 
+# Suppress llama.cpp C-level tokenizer warnings (MedGemma 262K vocab)
+# Must be set BEFORE llama_cpp is imported anywhere.
+os.environ["LLAMA_LOG_LEVEL"] = "ERROR"
+os.environ["GGML_LOG_LEVEL"] = "error"
+
 # Import the FastAPI app
 from src.api.app import app
 

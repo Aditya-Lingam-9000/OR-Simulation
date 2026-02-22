@@ -48,19 +48,57 @@ def _suppress_stderr():
     llama.cpp's tokenizer emits thousands of 'control token not marked
     as EOG' warnings via C-level fprintf(stderr, …) for large-vocab
     models like MedGemma (262 K tokens).  These bypass Python logging
-    and cannot be silenced with verbose=False.  We redirect the *OS*
-    file-descriptor so even the C layer is muted.
+    and cannot be silenced with verbose=False.
+
+    Strategy:
+      1. Use llama_cpp.llama_log_set() callback to mute C-level logs.
+      2. Redirect the OS-level file descriptor 2 (stderr) to devnull
+         so that any remaining fprintf(stderr, …) calls are swallowed.
+      3. Handle Jupyter/Kaggle where sys.stderr.fileno() may fail.
     """
+    # --- 1. Suppress via llama.cpp log callback ---
+    _log_callback_set = False
     try:
-        stderr_fd = sys.stderr.fileno()
+        import ctypes
+        from llama_cpp import llama_log_set
+
+        # Keep a reference so it isn't GC'd while active
+        @ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p)
+        def _noop_log(level, text, user_data):
+            pass
+
+        llama_log_set(_noop_log, ctypes.c_void_p())
+        _log_callback_set = True
+    except Exception:
+        pass  # older llama-cpp-python without llama_log_set
+
+    # --- 2. Redirect OS-level fd 2 (stderr) ---
+    saved_fd = None
+    try:
+        stderr_fd = sys.stderr.fileno()          # may raise in Jupyter
         saved_fd = os.dup(stderr_fd)
         devnull = os.open(os.devnull, os.O_WRONLY)
         os.dup2(devnull, stderr_fd)
         os.close(devnull)
+    except Exception:
+        saved_fd = None  # Jupyter/Kaggle — skip fd redirect
+
+    try:
         yield
     finally:
-        os.dup2(saved_fd, stderr_fd)
-        os.close(saved_fd)
+        # Restore fd
+        if saved_fd is not None:
+            try:
+                os.dup2(saved_fd, sys.stderr.fileno())
+                os.close(saved_fd)
+            except Exception:
+                pass
+        # Reset log callback (restore default logging)
+        if _log_callback_set:
+            try:
+                llama_log_set(ctypes.cast(None, ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p, ctypes.c_void_p)), ctypes.c_void_p())
+            except Exception:
+                pass
 
 
 # ---------------------------------------------------------------------------
@@ -370,6 +408,7 @@ class GGUFRunner:
                 messages=messages,
                 max_tokens=max_tok,
                 temperature=temp,
+                response_format={"type": "json_object"},
             )
             elapsed_ms = (time.perf_counter() - t0) * 1000
             self._total_time_ms += elapsed_ms
@@ -415,14 +454,13 @@ class GGUFRunner:
             raw_text: Raw model output string.
 
         Returns:
-            Parsed JSON dict.
-
-        Raises:
-            ValueError: If no valid JSON could be extracted.
+            Parsed JSON dict.  Returns ``_STUB_RESPONSE`` on failure
+            instead of raising so that callers always get usable output.
         """
         text = raw_text.strip()
         if not text:
-            raise ValueError("Empty model output")
+            logger.warning("LLM returned empty text — using stub")
+            return dict(_STUB_RESPONSE)
 
         # Strategy 1: direct parse
         try:
@@ -456,7 +494,11 @@ class GGUFRunner:
             except json.JSONDecodeError:
                 pass
 
-        raise ValueError(f"No valid JSON found in model output: {text[:200]}")
+        logger.warning(
+            "No valid JSON in model output (len=%d): %.200s — using stub",
+            len(text), text[:200],
+        )
+        return dict(_STUB_RESPONSE)
 
     # ------------------------------------------------------------------
     # Stats

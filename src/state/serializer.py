@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -179,7 +180,8 @@ class StateSerializer:
         Normalize a raw MedGemma LLM response into the JSON contract.
 
         Handles common LLM output quirks: missing keys, string confidence,
-        unstructured machine references, etc.
+        unstructured machine references, wrong machine-ID formats,
+        extra keys in details/toggles, etc.
 
         Args:
             raw: Raw dict from LLM response parsing.
@@ -187,33 +189,92 @@ class StateSerializer:
             phase: Current surgical phase.
 
         Returns:
-            Normalized state dict.
+            Normalized state dict that passes schema validation.
         """
-        # LLM outputs may have different key structures
+        _MID_RE = re.compile(r"^M[0-9]{2}$")
+
+        def _filter_mids(ids: Any) -> List[str]:
+            """Keep only valid M## machine IDs."""
+            if not isinstance(ids, list):
+                return []
+            return [mid for mid in ids if isinstance(mid, str) and _MID_RE.match(mid)]
+
+        def _sanitize_toggles(raw_details: Any) -> Dict[str, Any]:
+            """Clean the details.toggles list so it passes strict schema."""
+            if not isinstance(raw_details, dict):
+                return {}
+            toggles_raw = raw_details.get("toggles", [])
+            if not isinstance(toggles_raw, list):
+                return {}
+            valid_actions = {"ON", "OFF", "STANDBY"}
+            valid_match_types = {"trigger", "alias", "name", "llm"}
+            clean = []
+            for t in toggles_raw:
+                if not isinstance(t, dict):
+                    continue
+                mid = t.get("machine_id", "")
+                if not _MID_RE.match(str(mid)):
+                    continue
+                action = str(t.get("action", "")).upper()
+                if action not in valid_actions:
+                    continue
+                entry: Dict[str, Any] = {
+                    "machine_id": mid,
+                    "name": str(t.get("name", mid)),
+                    "action": action,
+                }
+                trigger = t.get("trigger")
+                if trigger is not None:
+                    entry["trigger"] = str(trigger)
+                conf = t.get("confidence")
+                if conf is not None:
+                    entry["confidence"] = self._clamp_confidence(conf)
+                mt = t.get("match_type")
+                if mt is not None and str(mt) in valid_match_types:
+                    entry["match_type"] = str(mt)
+                else:
+                    entry["match_type"] = "llm"
+                clean.append(entry)
+            result: Dict[str, Any] = {}
+            if clean:
+                result["toggles"] = clean
+            # Pass through safe optional keys
+            for key in ("negations", "debounced"):
+                val = raw_details.get(key)
+                if isinstance(val, list):
+                    result[key] = [str(v) for v in val]
+            return result
+
+        # ---- metadata ----
         metadata = dict(raw.get("metadata", {}))
         metadata.setdefault("surgery", surgery)
         metadata.setdefault("phase", phase)
         metadata.setdefault("timestamp", datetime.now(timezone.utc).isoformat())
 
-        # Extract reasoning
         if "reasoning" in raw and "reasoning" not in metadata:
-            metadata["reasoning"] = raw["reasoning"]
+            metadata["reasoning"] = str(raw["reasoning"])
         if "next_phase" in raw and "next_phase" not in metadata:
-            metadata["next_phase"] = raw["next_phase"]
+            metadata["next_phase"] = str(raw["next_phase"])
 
-        # Build machines (LLM may provide them differently)
+        # ---- machines (filter to valid M## IDs only) ----
         machines_raw = raw.get("machines", {"0": [], "1": []})
         if not isinstance(machines_raw, dict):
             machines_raw = {"0": [], "1": []}
 
+        # ---- suggestions (ensure list of strings) ----
+        sugs_raw = raw.get("suggestions", [])
+        if not isinstance(sugs_raw, list):
+            sugs_raw = []
+        suggestions = [str(s) for s in sugs_raw if s]
+
         normalized = {
             "metadata": metadata,
             "machines": {
-                "0": list(machines_raw.get("0", [])),
-                "1": list(machines_raw.get("1", [])),
+                "0": _filter_mids(machines_raw.get("0", [])),
+                "1": _filter_mids(machines_raw.get("1", [])),
             },
-            "details": dict(raw.get("details", {})),
-            "suggestions": list(raw.get("suggestions", [])),
+            "details": _sanitize_toggles(raw.get("details", {})),
+            "suggestions": suggestions,
             "confidence": self._clamp_confidence(raw.get("confidence", 0.0)),
             "source": "medgemma",
         }
