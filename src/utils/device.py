@@ -107,7 +107,7 @@ def get_gguf_gpu_layers() -> int:
 
         if torch.cuda.is_available():
             # Get available VRAM in GB
-            vram_gb = torch.cuda.get_device_properties(0).total_mem / (1024**3)
+            vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
             if vram_gb >= 8:
                 logger.info("GGUF: offloading all layers to GPU (%.1f GB VRAM)", vram_gb)
                 return -1  # All layers on GPU
