@@ -20,11 +20,27 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 
-from src.asr.onnx_runner import OnnxASRRunner
 from src.asr.runner import ASRResult
 from src.utils.constants import ASR_MAX_QUEUE_SIZE, AUDIO_SAMPLE_RATE
 
 logger = logging.getLogger(__name__)
+
+
+def _create_asr_runner():
+    """Create the best available ASR runner (sherpa-onnx preferred)."""
+    # Try sherpa-onnx first (bundles its own ONNX runtime, no CUDA lib issues)
+    try:
+        import sherpa_onnx  # noqa: F401
+        from src.asr.sherpa_runner import SherpaASRRunner
+        logger.info("ASR backend: sherpa-onnx (preferred)")
+        return SherpaASRRunner()
+    except ImportError:
+        logger.info("sherpa-onnx not available, trying onnxruntime backend")
+
+    # Fall back to raw onnxruntime
+    from src.asr.onnx_runner import OnnxASRRunner
+    logger.info("ASR backend: onnxruntime")
+    return OnnxASRRunner()
 
 
 class ASRWorker:
@@ -69,7 +85,7 @@ class ASRWorker:
 
         # Load model if not already loaded
         if self._runner is None:
-            self._runner = OnnxASRRunner()
+            self._runner = _create_asr_runner()
         if not self._runner.is_loaded():
             logger.info("ASRWorker loading ASR model...")
             await asyncio.get_event_loop().run_in_executor(

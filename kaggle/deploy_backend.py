@@ -32,20 +32,14 @@ pip_install(
     "fastapi==0.115.0",
     "uvicorn[standard]==0.30.0",
     "pydantic>=2.0",
-    "numpy<2",                  # onnxruntime needs numpy 1.x
+    "numpy>=1.24",
+    "sherpa-onnx>=1.12.0",      # ASR (bundles ONNX Runtime internally)
+    "soundfile>=0.12.1",        # audio I/O
     "pyngrok==7.1.6",           # ngrok tunnel
     "torchaudio>=2.0",          # feature extraction
     "huggingface_hub",          # model downloads
 )
-
-# onnxruntime-gpu for CUDA 12 (Kaggle environment)
-subprocess.check_call([
-    sys.executable, "-m", "pip", "install", "-q",
-    "onnxruntime-gpu",
-    "--extra-index-url",
-    "https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/",
-])
-print("✅ Core dependencies installed (onnxruntime CUDA 12)")
+print("✅ Core dependencies installed")
 
 # llama-cpp-python — prebuilt CUDA 12.4 wheel (no compile needed)
 subprocess.check_call([
