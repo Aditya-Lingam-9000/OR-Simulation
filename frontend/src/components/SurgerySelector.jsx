@@ -5,7 +5,7 @@
  * then POSTs to /select_surgery when the user picks a new one.
  */
 import React, { useEffect, useState } from "react";
-import { useApiBase } from "../providers/StateProvider";
+import { useApiBase, ngrokFetchOpts } from "../providers/StateProvider";
 
 export default function SurgerySelector({ currentSurgery, onSwitched }) {
   const [surgeries, setSurgeries] = useState([]);
@@ -13,7 +13,7 @@ export default function SurgerySelector({ currentSurgery, onSwitched }) {
   const apiBase = useApiBase();
 
   useEffect(() => {
-    fetch(`${apiBase}/surgeries`)
+    fetch(`${apiBase}/surgeries`, ngrokFetchOpts())
       .then((r) => r.json())
       .then((data) => setSurgeries(data))
       .catch((err) => console.error("[SurgerySelector] fetch error:", err));
@@ -24,11 +24,11 @@ export default function SurgerySelector({ currentSurgery, onSwitched }) {
     if (selected === currentSurgery) return;
     setLoading(true);
     try {
-      const res = await fetch(`${apiBase}/select_surgery`, {
+      const res = await fetch(`${apiBase}/select_surgery`, ngrokFetchOpts({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ surgery: selected }),
-      });
+      }));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       onSwitched && onSwitched(selected);
     } catch (err) {

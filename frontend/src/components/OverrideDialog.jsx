@@ -10,7 +10,7 @@
  *   onClose  — () => void
  */
 import React, { useState } from "react";
-import { useApiBase } from "../providers/StateProvider";
+import { useApiBase, ngrokFetchOpts } from "../providers/StateProvider";
 
 const ACTIONS = ["ON", "OFF", "STANDBY"];
 
@@ -28,7 +28,7 @@ export default function OverrideDialog({ machine, isOn, onClose }) {
     setSubmitting(true);
     setResult(null);
     try {
-      const res = await fetch(`${apiBase}/override`, {
+      const res = await fetch(`${apiBase}/override`, ngrokFetchOpts({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -36,7 +36,7 @@ export default function OverrideDialog({ machine, isOn, onClose }) {
           action,
           reason: reason.trim() || "Manual override",
         }),
-      });
+      }));
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || `HTTP ${res.status}`);

@@ -345,8 +345,11 @@ class GGUFRunner:
             self._total_time_ms += elapsed_ms
             self._total_inferences += 1
 
-            raw_text = response["choices"][0]["message"]["content"]
-            logger.debug("GGUF chat: %.0fms, output=%d chars", elapsed_ms, len(raw_text))
+            raw_text = response["choices"][0]["message"]["content"] or ""
+            logger.info(
+                "GGUF chat: %.0fms, output=%d chars, preview=%.200s",
+                elapsed_ms, len(raw_text), raw_text[:200],
+            )
             return self._parse_json_output(raw_text)
 
         except Exception as e:

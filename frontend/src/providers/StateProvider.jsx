@@ -22,7 +22,7 @@ const INITIAL_STATE = {
 
 /**
  * Build WebSocket URL for state.
- * @param {string|null} backendUrl — e.g. "https://xxxx.ngrok-free.app"
+ * @param {string|null} backendUrl 
  */
 function buildWsUrl(backendUrl) {
   if (backendUrl) {
@@ -36,7 +36,7 @@ function buildWsUrl(backendUrl) {
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 16000;
 
-export function StateProvider({ children, backendUrl }) {
+export function StateProvider({ children, backendUrl = null }) {
   const [state, setState] = useState(INITIAL_STATE);
   const [connected, setConnected] = useState(false);
   const [reconnectCount, setReconnectCount] = useState(0);
@@ -47,16 +47,18 @@ export function StateProvider({ children, backendUrl }) {
   const connect = useCallback(() => {
     if (!mountedRef.current) return;
 
-    try {
-      const ws = new WebSocket(buildWsUrl(backendUrl));
-      wsRef.current = ws;
+    const doConnect = () => {
+      try {
+        const wsUrl = buildWsUrl(backendUrl);
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
 
-      ws.onopen = () => {
-        if (!mountedRef.current) return;
-        setConnected(true);
-        setReconnectCount(0);
-        console.log("[OR-Symphony] WebSocket connected");
-      };
+        ws.onopen = () => {
+          if (!mountedRef.current) return;
+          setConnected(true);
+          setReconnectCount(0);
+          console.log("[OR-Symphony] WebSocket connected");
+        };
 
       ws.onmessage = (event) => {
         if (!mountedRef.current) return;
@@ -83,6 +85,20 @@ export function StateProvider({ children, backendUrl }) {
     } catch (err) {
       console.error("[OR-Symphony] WebSocket creation failed:", err);
       scheduleReconnect();
+    }
+    };
+
+    // ngrok free tier shows an interstitial page on first visit.
+    // We must hit an HTTP endpoint with the bypass header first,
+    // then open the WebSocket after the interstitial is cleared.
+    if (backendUrl && backendUrl.includes("ngrok")) {
+      const healthUrl = `${backendUrl.replace(/\/$/, "")}/health`;
+      console.log("[OR-Symphony] Warming ngrok via", healthUrl);
+      fetch(healthUrl, { headers: { "ngrok-skip-browser-warning": "true" } })
+        .then(() => doConnect())
+        .catch(() => doConnect()); // try WS anyway even if health fails
+    } else {
+      doConnect();
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -134,4 +150,18 @@ export function useORState() {
 export function useApiBase() {
   const { backendUrl } = useORState();
   return backendUrl ? backendUrl.replace(/\/$/, "") : "";
+}
+
+/**
+ * Build fetch options that include ngrok-skip-browser-warning header.
+ * Use: fetch(url, ngrokFetchOpts())
+ */
+export function ngrokFetchOpts(extra = {}) {
+  return {
+    ...extra,
+    headers: {
+      ...(extra.headers || {}),
+      "ngrok-skip-browser-warning": "true",
+    },
+  };
 }

@@ -248,6 +248,16 @@ class LLMManager:
             mins, secs = divmod(int(request.session_time_s), 60)
             session_time_str = f"{mins}m {secs}s"
 
+            # Build chat-style messages so llama-cpp applies the proper
+            # Gemma-3 chat template (instruction-tuned models return empty
+            # output with raw text completion).
+            messages = self._prompt_builder.build_messages(
+                transcript_context=request.transcript_context,
+                current_phase=request.current_phase,
+                session_time=session_time_str,
+                current_machines=request.current_machines,
+            )
+            # Also build a flat prompt string as fallback label
             prompt = self._prompt_builder.build_completion_prompt(
                 transcript_context=request.transcript_context,
                 current_phase=request.current_phase,
@@ -263,7 +273,8 @@ class LLMManager:
             batch_result = await self._batcher.submit(
                 prompt=prompt,
                 request_id=request.request_id,
-                use_chat=False,
+                use_chat=True,
+                messages=messages,
             )
 
             if not batch_result.success:

@@ -10,7 +10,7 @@
  *   OverrideDialog — modal (on machine click)
  */
 import React, { useEffect, useState, useCallback } from "react";
-import { StateProvider, useORState, useApiBase } from "./providers/StateProvider";
+import { StateProvider, useORState, useApiBase, ngrokFetchOpts } from "./providers/StateProvider";
 import OPRoom from "./components/OPRoom";
 import MachineList from "./components/MachineList";
 import SurgerySelector from "./components/SurgerySelector";
@@ -41,7 +41,7 @@ function AppContent() {
 
   // Fetch machines config when surgery changes
   useEffect(() => {
-    fetch(`${apiBase}/machines`)
+    fetch(`${apiBase}/machines`, ngrokFetchOpts())
       .then((r) => r.json())
       .then((data) => setMachinesData(data))
       .catch((err) => console.error("[App] machines fetch:", err));
