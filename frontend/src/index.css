@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Global Styles ─────────────────────────────────────────── */
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Machine State Colors ──────────────────────────────────── */
+
+.machine-state-on {
+  @apply text-machine-on;
+  filter: drop-shadow(0 0 6px rgba(34, 197, 94, 0.5));
+}
+
+.machine-state-off {
+  @apply text-machine-off opacity-50;
+}
+
+.machine-state-standby {
+  @apply text-machine-standby;
+  animation: blink 1.5s ease-in-out infinite;
+}
+
+.machine-state-caution {
+  @apply text-machine-caution;
+  animation: blink 0.8s ease-in-out infinite;
+}
+
+/* ── Source Badges ──────────────────────────────────────────── */
+
+.source-badge {
+  @apply text-xs font-medium px-2 py-0.5 rounded-full;
+}
+
+.source-rule {
+  @apply bg-source-rule/20 text-source-rule;
+}
+
+.source-llm {
+  @apply bg-source-llm/20 text-source-llm;
+}
+
+.source-both {
+  @apply bg-source-both/20 text-source-both;
+}
+
+/* ── Override Dialog ───────────────────────────────────────── */
+
+.dialog-overlay {
+  @apply fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50;
+}
+
+.dialog-content {
+  @apply bg-or-panel border border-or-accent rounded-xl p-6 shadow-2xl
+         w-full max-w-md animate-slide-in;
+}
+
+/* ── SVG OR Room ───────────────────────────────────────────── */
+
+.or-room-svg {
+  @apply w-full h-full;
+}
+
+.or-room-svg .zone-label {
+  @apply fill-gray-400 text-xs;
+  font-size: 10px;
+}
+
+.or-room-svg .machine-group {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.or-room-svg .machine-group:hover {
+  transform: scale(1.1);
+}
+
+.or-room-svg .machine-group:focus {
+  outline: 2px solid #e94560;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a2e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #0f3460;
+  border-radius: 3px;
+}

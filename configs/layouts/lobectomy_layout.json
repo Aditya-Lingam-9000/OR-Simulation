@@ -1,0 +1,36 @@
+{
+  "surgery": "Lobectomy",
+  "room": {
+    "width": 800,
+    "height": 600,
+    "background": "#1e293b"
+  },
+  "zones": {
+    "head_side":        { "x": 400, "y": 80,  "label": "Head" },
+    "anesthesia_corner": { "x": 120, "y": 120, "label": "Anesthesia" },
+    "side_left":        { "x": 80,  "y": 320, "label": "Imaging" },
+    "table_side":       { "x": 650, "y": 300, "label": "Instruments" },
+    "bed_side":         { "x": 550, "y": 200, "label": "Bed Side" },
+    "display_wall":     { "x": 400, "y": 520, "label": "Displays" },
+    "ceiling":          { "x": 400, "y": 30,  "label": "Ceiling" }
+  },
+  "bed": { "x": 300, "y": 220, "width": 200, "height": 120 },
+  "agents": [
+    { "id": "surgeon",    "label": "Surgeon",      "x": 400, "y": 380, "color": "#3b82f6" },
+    { "id": "assistant",  "label": "1st Assistant", "x": 300, "y": 380, "color": "#3b82f6" },
+    { "id": "nurse1",     "label": "Scrub Nurse",   "x": 550, "y": 250, "color": "#22c55e" },
+    { "id": "nurse2",     "label": "Circulator",    "x": 200, "y": 400, "color": "#22c55e" },
+    { "id": "anesthetist","label": "Anesthetist",   "x": 180, "y": 150, "color": "#eab308" }
+  ],
+  "machines": {
+    "M01": { "x": 420, "y": 80  },
+    "M02": { "x": 100, "y": 100 },
+    "M03": { "x": 140, "y": 140 },
+    "M04": { "x": 670, "y": 260 },
+    "M05": { "x": 670, "y": 320 },
+    "M06": { "x": 670, "y": 380 },
+    "M07": { "x": 560, "y": 180 },
+    "M08": { "x": 80,  "y": 300 },
+    "M09": { "x": 400, "y": 20  }
+  }
+}
